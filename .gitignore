@@ -1,0 +1,6 @@
+*
+!.gitignore
+!/images/
+!*.py
+!*.json
+!*.md
