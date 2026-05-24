@@ -1,8 +1,9 @@
 **为什么已经有了xxx，还会有这个**  
 1. 无键鼠操作，纯手柄硬件模拟
-2. 无DirectShowSurface Hook
+2. 无DirectDraw Surface Hook
 3. 支持副屏幕和虚拟屏幕
-4. 总之是给胆子小的人用的
+4. 更低的资源占用和更少的依赖
+5. 总之是给胆子小的人用的
 
 **安装**  
 pip install numpy scipy pillow vgamepad
