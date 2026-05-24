@@ -68,6 +68,7 @@ class FISH(Task):
         p = img.getpixel((1159, 648))
         if p[2] < 252:
           click(A)
+          click(A)
           break
       if is_timeout():
         click(B, 0.1, 1)
@@ -131,5 +132,4 @@ if __name__ == "__main__":
   else:
     TaskClass = globals().get(args.task.upper())
     task = TaskClass()
-    time.sleep(1)
     task.run()

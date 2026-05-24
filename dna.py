@@ -203,7 +203,6 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("task", type=str)
   parser.add_argument("--boost", "-b", type=int, default=0)
-  parser.add_argument("--wait", "-w", type=float, default=0)
   args = parser.parse_args()
   if args.task == 'shot':
     shot('shot.png')
@@ -214,9 +213,7 @@ if __name__ == "__main__":
     TaskClass = globals().get(args.task.upper())
     task = TaskClass()
     new = True
-    if args.wait > 0:
-      time.sleep(args.wait)
-      click(A)
+    click(GUIDE)
     while task.loop or new:
       print('new task')
       future = executor.submit(run, task)

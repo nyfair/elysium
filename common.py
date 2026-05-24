@@ -65,6 +65,7 @@ hdc_window = None
 def init_window(title):
   global hwnd, hdc_window
   hwnd = user32.FindWindowW(None, title)
+  user32.PostMessageW(hwnd, 0x0006, 1, 0)
   rect = RECT()
   dwmapi.DwmGetWindowAttribute(wintypes.HWND(hwnd), wintypes.DWORD(9), ctypes.byref(rect), ctypes.sizeof(rect))
   hdc_window = user32.GetWindowDC(hwnd)
