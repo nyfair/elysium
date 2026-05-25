@@ -14,60 +14,48 @@ def task_ended():
   return True
 
 class Task:
-  timeout = 120
+  timeout = 90
 
   def run(self):
-    click(Y, 0.1, 5.5)
+    click(Y, 0.1, 5)
     print('new task')
-    lstick(0, -10000, 0.8)
-    lstick()
     press(LB)
     click(X)
     release(LB, 0.5)
     click(RT)
     press(LB)
-    click(X, 0.1, 0.8)
+    click(X, 0.1, 1.1)
     click(Y)
-    release(LB, 5.5)
-    press(LB)
-    click(X)
     release(LB, 0.5)
-    click(RT)
-    click(RB, 0.1, 0.5)
-    lstick(0, 10000, 0.7)
+    click(RB)
+    lstick(0, 10000, 1.5)
     click(RB, 0.1, 1.2)
-    lstick()
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    lstick(0, -10000)
-    press(LB)
-    click(X)
-    release(LB)
+    lstick(10000, 0)
     click(RB, 0.1, 1)
-    lstick(0, 0, 0.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 0.9)
+    for _ in range(3):
+      lstick(-10000, 0)
+      click(RB, 0.1, 1.5)
+      lstick(10000, 0)
+      click(RB, 0.1, 1.5)
+    lstick()
+    for i in range(3):
+      press(LB)
+      click(X, 0.1, 0.5)
+      click(Y)
+      release(LB, 1.7)
+      press(LB)
+      click(Y)
+      release(LB, 1.5)
+      click(RB)
+      for _ in range(4):
+        lstick(-10000, 0)
+        click(RB, 0.1, 1.5)
+        lstick(10000, 0)
+        click(RB, 0.1, 1.5)
     press(LB)
     click(Y)
-    release(LB, 3)
-    press(LB)
-    click(Y)
-    release(LB, 3.2)
-    click(RB, 0.1, 1.2)
-    click(RB, 0.1, 1.2)
+    release(LB)
+    lstick()
 
 def reset():
   PAD.reset()
@@ -88,13 +76,10 @@ def run(task):
       time.sleep(0.03)
 
 task = Task()
-new = True
 while True:
   future = executor.submit(run, task)
   try:
-    future.result(task.timeout * 2 if new else task.timeout)
-    new = False
+    future.result(task.timeout)
   except Exception as e:
     print(f'task reset: {e}')
     reset()
-    new = True
