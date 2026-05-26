@@ -13,5 +13,5 @@ pip install numpy scipy pillow vgamepad
 | game | task |
 | --- | --- |
 | **两个陀螺** | dna.py |
-| **异环** | nete.py |
+| **异环** | nte.py |
 | **狩月人之阶SSS**(120fps) | phoxhunter.py |

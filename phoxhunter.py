@@ -38,11 +38,11 @@ class Task:
       lstick(10000, 0)
       click(RB, 0.1, 1.5)
     lstick()
-    for i in range(3):
+    for _ in range(3):
       press(LB)
       click(X, 0.1, 0.5)
       click(Y)
-      release(LB, 1.7)
+      release(LB, 1.8)
       press(LB)
       click(Y)
       release(LB, 1.5)
