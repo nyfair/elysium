@@ -30,32 +30,32 @@ class Task:
     click(RB)
     lstick(0, 10000, 1.5)
     click(RB, 0.1, 1.2)
-    lstick(10000, 0)
-    click(RB, 0.1, 1)
+    click(RB, 0.1, 1.2)
     for _ in range(3):
-      lstick(-10000, 0)
+      lstick(10000, 10000)
       click(RB, 0.1, 1.5)
-      lstick(10000, 0)
+      lstick(-10000, 10000)
       click(RB, 0.1, 1.5)
     lstick()
     for _ in range(3):
       press(LB)
       click(X, 0.1, 0.5)
       click(Y)
-      release(LB, 1.8)
+      release(LB, 1.4)
+      click(B, 0.1, 0.3)
       press(LB)
       click(Y)
       release(LB, 1.5)
       click(RB)
       for _ in range(4):
-        lstick(-10000, 0)
+        lstick(-10000, 10000)
         click(RB, 0.1, 1.5)
-        lstick(10000, 0)
+        lstick(10000, 10000)
         click(RB, 0.1, 1.5)
+        lstick()
     press(LB)
     click(Y)
     release(LB)
-    lstick()
 
 def reset():
   PAD.reset()
@@ -63,7 +63,8 @@ def reset():
   time.sleep(1)
   click(START, 0.1, 0.3)
   click(X, 0.1, 0.3)
-  click(A)
+  click(A, 0.1, 3)
+  click(Y)
 
 def run(task):
   while True:
