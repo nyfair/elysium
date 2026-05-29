@@ -117,6 +117,7 @@ class FISH(Task):
         img = shot()
         p = img.getpixel((647, 317))
         if all(c > 245 for c in p):
+          time.sleep(2.2)
           click(B)
           break
         else:
