@@ -164,7 +164,7 @@ class FISH(Task):
 
   def run(self):
     ease = False
-    for i in range(1, 101):
+    for i in range(100):
       if not ease:
         self.wait_condition('fish_ease')
         click(A, 0.1, 1)
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     TaskClass = globals().get(args.task.upper())
     task = TaskClass()
     new = True
-    click(GUIDE)
+    click(A)
     while task.loop or new:
       print('new task')
       future = executor.submit(run, task)
