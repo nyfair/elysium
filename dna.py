@@ -47,7 +47,7 @@ def aim(find_img, crop_l, crop_u, crop_w, crop_h, y_min, y_max, min_diff=10, max
 
 def task_started():
   img = shot()
-  p = img.getpixel((172, 696))
+  p = img.getpixel((172, 695))
   if any(c < 252 for c in p):
     return False
   return True
@@ -102,14 +102,27 @@ class Q40(Task):
       lstick(0, 10000, 5)
       lstick()
 
-class Q60(Task):
+class Q(Task):
   timeout = 60
+  cross = {
+    "w": (0, 10000),
+    "s": (0, -10000),
+    "a": (-10000, 0),
+    "d": (10000, 0),
+  }
 
   def run(self):
     super().run()
     time.sleep(2.5)
-    for _ in range(2):
-      click(LS, 0.1, 1)
+    for s, num in zip(STRATEGY[::2], STRATEGY[1::2]):
+      c = int(num)
+      if s == "j":
+        for _ in range(c + 1):
+          click(LS, 0.1, 1)
+      elif s in self.cross:
+        x, y = self.cross[s]
+        lstick(x, y, c)
+        lstick()
     press(LB)
     click(Y)
     release(LB)
@@ -203,22 +216,25 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("task", type=str)
   parser.add_argument("--boost", "-b", type=int, default=0)
+  parser.add_argument("--strategy", "-s", type=str, default='')
+  parser.add_argument("--timeout", "-t", type=int, default=0)
   args = parser.parse_args()
   if args.task == 'shot':
     shot('shot.png')
   else:
-    global BOOST, ASSETS
+    global BOOST, STRATEGY, ASSETS
     BOOST = args.boost
+    STRATEGY = args.strategy
     ASSETS = load_assets()
     TaskClass = globals().get(args.task.upper())
     task = TaskClass()
     new = True
     click(A)
     while task.loop or new:
-      print('new task')
+      print('wait for next battle')
       future = executor.submit(run, task)
       try:
-        future.result(task.timeout)
+        future.result(task.timeout if args.timeout == 0 else args.timeout)
         new = False
       except Exception as e:
         if task.loop:
