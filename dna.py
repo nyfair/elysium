@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 from common import *
 
-TITLE = "二重螺旋  "
+TITLE = '二重螺旋  '
 init_window(TITLE)
 executor = ThreadPoolExecutor(max_workers=1)
 
@@ -82,6 +82,44 @@ class Task:
     click(X, 0.1, 0.3)
     click(A)
 
+class Q(Task):
+  timeout = 60
+  cross = {
+    'w': (0, 10000),
+    's': (0, -10000),
+    'a': (-10000, 0),
+    'd': (10000, 0),
+  }
+
+  def run(self):
+    super().run()
+    time.sleep(3)
+    for s, num in zip(STRATEGY[::2], STRATEGY[1::2]):
+      c = int(num)
+      if s == 'j':
+        for _ in range(c):
+          click(LS, 0.1, 1)
+      elif s in self.cross:
+        x, y = self.cross[s]
+        lstick(x, y, c)
+        lstick()
+      elif s == 'q':
+        press(LB)
+        click(Y)
+        if c > 0:
+          release(LB, c)
+        else:
+          release(LB)
+      elif s == 'e':
+        press(LB)
+        click(X)
+        if c > 0:
+          release(LB, c)
+        else:
+          release(LB)
+      elif s == 'p':
+        time.sleep(c)
+
 class Q40(Task):
   timeout = 60
 
@@ -102,31 +140,6 @@ class Q40(Task):
       lstick(0, 10000, 5)
       lstick()
 
-class Q(Task):
-  timeout = 60
-  cross = {
-    "w": (0, 10000),
-    "s": (0, -10000),
-    "a": (-10000, 0),
-    "d": (10000, 0),
-  }
-
-  def run(self):
-    super().run()
-    time.sleep(2.5)
-    for s, num in zip(STRATEGY[::2], STRATEGY[1::2]):
-      c = int(num)
-      if s == "j":
-        for _ in range(c + 1):
-          click(LS, 0.1, 1)
-      elif s in self.cross:
-        x, y = self.cross[s]
-        lstick(x, y, c)
-        lstick()
-    press(LB)
-    click(Y)
-    release(LB)
-
 class E65(Task):
   timeout = 100
 
@@ -137,7 +150,7 @@ class E65(Task):
     press(LB)
     click(X)
     release(LB, 1.25)
-    click(RB)
+    click(X)
     rstick(-23000, -12000, 1)
     rstick()
     lstick(0, 10000, 2)
@@ -146,7 +159,7 @@ class E65(Task):
     press(LB)
     click(X)
     release(LB, 0.8)
-    click(RB, 0.1, 0.8)
+    click(X, 0.1, 0.8)
     rstick(0, -32000, 0.6)
     rstick()
     for _ in range(6):
@@ -170,12 +183,13 @@ class FISH(Task):
   def wait_condition(self, template):
     while True:
       score = self.get_score(template)
-      print(f'{template.replace("fish_", "")}:{score:.2f}')
+      print(f'{template.replace('fish_', '')}:{score:.2f}')
       if score > 0.4:
         return score
       time.sleep(0.1)
 
   def run(self):
+    click(A)
     ease = False
     for i in range(100):
       if not ease:
@@ -212,12 +226,12 @@ def run(task):
   else:
     task.run()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  parser.add_argument("task", type=str)
-  parser.add_argument("--boost", "-b", type=int, default=0)
-  parser.add_argument("--strategy", "-s", type=str, default='')
-  parser.add_argument("--timeout", "-t", type=int, default=0)
+  parser.add_argument('task', type=str)
+  parser.add_argument('--boost', '-b', type=int, default=0)
+  parser.add_argument('--strategy', '-s', type=str, default='j1q0')
+  parser.add_argument('--timeout', '-t', type=int, default=0)
   args = parser.parse_args()
   if args.task == 'shot':
     shot('shot.png')
@@ -229,9 +243,9 @@ if __name__ == "__main__":
     TaskClass = globals().get(args.task.upper())
     task = TaskClass()
     new = True
-    click(A)
+    click(LB)
     while task.loop or new:
-      print('wait for next battle')
+      print('wait for next task')
       future = executor.submit(run, task)
       try:
         future.result(task.timeout if args.timeout == 0 else args.timeout)
