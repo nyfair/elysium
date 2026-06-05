@@ -62,6 +62,13 @@ def task_ended():
 class Task:
   timeout = 0
   loop = True
+  cross = {
+    'w': (0, 10000),
+    's': (0, -10000),
+    'a': (-10000, 0),
+    'd': (10000, 0),
+  }
+  cur_turn = 1
 
   def run(self):
     click(Y, 0.1, 0.2)
@@ -82,18 +89,7 @@ class Task:
     click(X, 0.1, 0.3)
     click(A)
 
-class Q(Task):
-  timeout = 60
-  cross = {
-    'w': (0, 10000),
-    's': (0, -10000),
-    'a': (-10000, 0),
-    'd': (10000, 0),
-  }
-
-  def run(self):
-    super().run()
-    time.sleep(3)
+  def strategy(self):
     for s, num in zip(STRATEGY[::2], STRATEGY[1::2]):
       c = int(num)
       if s == 'j':
@@ -120,11 +116,42 @@ class Q(Task):
       elif s == 'p':
         time.sleep(c)
 
+  def endless(self):
+    img = shot()
+    p = img.getpixel((886, 638))
+    if not any(c > 3 for c in p):
+      print('finish endless quest')
+      return False
+    p = img.getpixel((658, 604))
+    if not any(c > 5 for c in p):
+      click(Y)
+    p = img.getpixel((835, 519))
+    if (214 < p[0] < 236) and (169 < p[1] < 191) and (73 < p[2] < 95):
+      if self.cur_turn >= TURN:
+        click(X, 1.2)
+        print(f'finish endless')
+        return False
+      else:
+        click(Y, 1.2)
+        click(A)
+        print(f'finish turn {self.cur_turn}')
+      self.cur_turn += 1
+    return True
+
+class Q(Task):
+  timeout = 60
+
+  def run(self):
+    super().run()
+    time.sleep(1)
+    super().strategy()
+
 class Q40(Task):
   timeout = 60
 
   def run(self):
     super().run()
+    time.sleep(1)
     click(LS, 0.1, 1)
     rstick(-14000, 19000)
     click(LS, 0.1, 0.4)
@@ -213,6 +240,23 @@ class FISH(Task):
         time.sleep(2)
         ease = False
 
+class SEMI(Task):
+  timeout = 20000
+  loop = False
+
+  def run(self):
+    while super().endless():
+      time.sleep(0.5)
+
+class AUTO(Q):
+  timeout = 20000
+  loop = True
+
+  def run(self):
+    super().run()
+    while super().endless():
+      time.sleep(0.5)
+
 def run(task):
   if task.loop:
     while True:
@@ -230,15 +274,17 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('task', type=str)
   parser.add_argument('--boost', '-b', type=int, default=0)
-  parser.add_argument('--strategy', '-s', type=str, default='j1q0')
-  parser.add_argument('--timeout', '-t', type=int, default=0)
+  parser.add_argument('--strategy', '-s', type=str, default='')
+  parser.add_argument('--turn', '-t', type=int, default=99)
+  parser.add_argument('--timeout', '-o', type=int, default=0)
   args = parser.parse_args()
   if args.task == 'shot':
     shot('shot.png')
   else:
-    global BOOST, STRATEGY, ASSETS
+    global BOOST, STRATEGY, TURN, ASSETS
     BOOST = args.boost
     STRATEGY = args.strategy
+    TURN = args.turn
     ASSETS = load_assets()
     TaskClass = globals().get(args.task.upper())
     task = TaskClass()
