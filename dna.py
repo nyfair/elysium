@@ -5,7 +5,7 @@ from common import *
 
 TITLE = '二重螺旋  '
 init_window(TITLE)
-executor = ThreadPoolExecutor(max_workers=1)
+executor = ThreadPoolExecutor(max_workers=2)
 
 def short_aim_move(x, y=0, move_time=0.035, zero_time=0.01):
   PAD.right_joystick(x, y)
@@ -61,6 +61,7 @@ def task_ended():
 
 class Task:
   timeout = 0
+  wait = 0
   loop = True
   cross = {
     'w': (0, 10000),
@@ -69,6 +70,8 @@ class Task:
     'd': (10000, 0),
   }
   cur_turn = 1
+  stop_combo = False
+  pause_combo = False
 
   def run(self):
     click(Y, 0.1, 0.2)
@@ -89,8 +92,12 @@ class Task:
     click(X, 0.1, 0.3)
     click(A)
 
-  def strategy(self):
-    for s, num in zip(STRATEGY[::2], STRATEGY[1::2]):
+  def run_combo(self, combo):
+    for s, num in zip(combo[::2], combo[1::2]):
+      if self.stop_combo:
+        break
+      while self.pause_combo:
+        time.sleep(0.1)
       c = int(num)
       if s == 'j':
         for _ in range(c):
@@ -116,42 +123,54 @@ class Task:
       elif s == 'p':
         time.sleep(c)
 
+  def loop_combo(self):
+    while not self.stop_combo:
+      self.run_combo(COMBO)
+
   def endless(self):
     img = shot()
     p = img.getpixel((886, 638))
     if not any(c > 3 for c in p):
+      self.stop_combo = True
       print('finish endless quest')
       return False
-    p = img.getpixel((658, 604))
+    p = img.getpixel((658, 602))
     if not any(c > 5 for c in p):
+      self.pause_combo = True
       click(Y)
     p = img.getpixel((835, 519))
     if (214 < p[0] < 236) and (169 < p[1] < 191) and (73 < p[2] < 95):
+      self.pause_combo = True
       if self.cur_turn >= TURN:
+        self.stop_combo = True
         click(X, 1.2)
-        print(f'finish endless')
+        print(f'endless task reach maximum turn')
         return False
       else:
         click(Y, 1.2)
-        click(A)
+        click(A, 0.1, 1)
         print(f'finish turn {self.cur_turn}')
       self.cur_turn += 1
+      self.pause_combo = False
     return True
 
 class Q(Task):
   timeout = 60
+  wait = 1
 
   def run(self):
     super().run()
-    time.sleep(1)
-    super().strategy()
+    time.sleep(self.wait)
+    if STRATEGY:
+      super().run_combo(STRATEGY)
+    if COMBO:
+      executor.submit(self.loop_combo)
 
-class Q40(Task):
-  timeout = 60
+class Q40(Q):
+  timeout = 80
 
   def run(self):
     super().run()
-    time.sleep(1)
     click(LS, 0.1, 1)
     rstick(-14000, 19000)
     click(LS, 0.1, 0.4)
@@ -167,8 +186,9 @@ class Q40(Task):
       lstick(0, 10000, 5)
       lstick()
 
-class E65(Task):
+class E65(Q):
   timeout = 100
+  wait = 0
 
   def run(self):
     super().run()
@@ -189,7 +209,7 @@ class E65(Task):
     click(X, 0.1, 0.8)
     rstick(0, -32000, 0.6)
     rstick()
-    for _ in range(6):
+    for _ in range(5):
       click(LS, 0.1, 1)
     lstick(0, 10000, 1)
     lstick()
@@ -245,12 +265,13 @@ class SEMI(Task):
   loop = False
 
   def run(self):
+    if COMBO:
+      executor.submit(self.loop_combo)
     while super().endless():
       time.sleep(0.5)
 
 class AUTO(Q):
   timeout = 20000
-  loop = True
 
   def run(self):
     super().run()
@@ -275,15 +296,17 @@ if __name__ == '__main__':
   parser.add_argument('task', type=str)
   parser.add_argument('--boost', '-b', type=int, default=0)
   parser.add_argument('--strategy', '-s', type=str, default='')
+  parser.add_argument('--combo', '-c', type=str, default='')
   parser.add_argument('--turn', '-t', type=int, default=99)
   parser.add_argument('--timeout', '-o', type=int, default=0)
   args = parser.parse_args()
   if args.task == 'shot':
     shot('shot.png')
   else:
-    global BOOST, STRATEGY, TURN, ASSETS
+    global BOOST, STRATEGY, COMBO, TURN, ASSETS
     BOOST = args.boost
     STRATEGY = args.strategy
+    COMBO = args.combo
     TURN = args.turn
     ASSETS = load_assets()
     TaskClass = globals().get(args.task.upper())
