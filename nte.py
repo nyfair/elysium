@@ -36,7 +36,7 @@ def ease(img):
     return (None, None)
 
 class FISH(Task):
-  timeout = 60
+  timeout = 40
 
   def run(self):
     while True:
@@ -57,9 +57,8 @@ class FISH(Task):
           click(B)
           continue
         p = img.getpixel((1019, 625))
-        if all(205 < c < 225 for c in p):
+        if all(c == 213 for c in p):
           click(Y, 0.1, 0.5)
-          click(A)
           continue
         p = img.getpixel((1192, 653))
         if any(c < 252 for c in p):
@@ -67,7 +66,6 @@ class FISH(Task):
           continue
         p = img.getpixel((1159, 648))
         if p[2] < 252:
-          click(A)
           click(A)
           break
       if is_timeout():

@@ -274,6 +274,9 @@ class AUTO(Q):
   timeout = 20000
 
   def run(self):
+    self.cur_turn = 1
+    self.stop_combo = False
+    self.pause_combo = False
     super().run()
     while super().endless():
       time.sleep(0.5)
