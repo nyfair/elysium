@@ -130,7 +130,7 @@ class Task:
   def endless(self):
     img = shot()
     p = img.getpixel((886, 638))
-    if not any(c > 3 for c in p):
+    if not any(c > 1 for c in p):
       self.stop_combo = True
       print('finish endless quest')
       return False
