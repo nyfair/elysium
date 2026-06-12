@@ -4,7 +4,6 @@ from common import *
 
 TITLE = "异环  "
 init_window(TITLE)
-new = True
 
 class Task:
   def run(self):
@@ -58,6 +57,7 @@ class FISH(Task):
           continue
         p = img.getpixel((1019, 625))
         if all(c == 213 for c in p):
+          print('fish prepare')
           click(Y, 0.1, 0.5)
           continue
         p = img.getpixel((1192, 653))
@@ -66,6 +66,8 @@ class FISH(Task):
           continue
         p = img.getpixel((1159, 648))
         if p[2] < 252:
+          print('fish cast')
+          click(A, 0.5)
           click(A)
           break
       if is_timeout():
@@ -77,31 +79,37 @@ class FISH(Task):
         img = shot()
         p = img.getpixel((1159, 648))
         if p[2] > 252:
+          print('fish bite')
           click(A, 0.1, 0.5)
           break
         else:
+          print('wait for bite')
           time.sleep(0.1)
           continue
       if is_timeout():
         click(B, 0.1, 1)
         continue
       key = None
+      print('fish ease')
       while True:
         if is_timeout():
           break
         img = shot()
         y, c = ease(img)
         if y is None:
+          print('stop ease')
           release(LT, 0)
           release(RT, 0.5)
           break
         if abs(y-c) < 11:
           continue
         if y > c and (not key == LT):
+          print('left')
           release(RT, 0)
           press(LT, 0)
           key = LT
         if y < c and (not key == RT):
+          print('right')
           release(LT, 0)
           press(RT, 0)
           key = RT
@@ -109,12 +117,15 @@ class FISH(Task):
       if is_timeout():
         click(B, 0.1, 1)
         continue
+      start = time.time() - self.timeout + 10
       while True:
         if is_timeout():
+          click(B)
           break
         img = shot()
         p = img.getpixel((647, 317))
         if all(c > 245 for c in p):
+          print('finish fish')
           time.sleep(2.5)
           click(B)
           break
