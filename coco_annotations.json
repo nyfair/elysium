@@ -34,6 +34,11 @@
             "id": 9,
             "name": "fish_ease",
             "supercategory": ""
+        },
+        {
+            "id": 35,
+            "name": "track_point",
+            "supercategory": ""
         }
     ],
     "images": [
@@ -48,6 +53,21 @@
         }
     ],
     "annotations": [
+        {
+            "id": 9,
+            "image_id": 9,
+            "category_id": 35,
+            "bbox": [
+                3064,
+                1077,
+                65,
+                63
+            ],
+            "area": 4045,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
+        },
         {
             "id": 17,
             "image_id": 9,
