@@ -24,8 +24,10 @@ class Task:
     click(X, 0.1, 1)
     click(X, 1.3)
     click(X, 1)
-    release(LB, 22.3)
-    press(X, 1)
+    release(LB, 4.3)
+    click(X, 1, 1)
+    click(X, 1, 1)
+    click(X, 1, 1)
 
 def reset():
   PAD.reset()
