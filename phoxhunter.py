@@ -28,6 +28,7 @@ class Task:
     click(X, 1, 1)
     click(X, 1, 1)
     click(X, 1, 1)
+    click(X, 1)
 
 def reset():
   PAD.reset()

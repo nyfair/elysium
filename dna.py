@@ -54,7 +54,7 @@ def task_started():
 
 def task_ended():
   img = shot()
-  p = img.getpixel((886, 638))
+  p = img.getpixel((881, 655))
   if any(c > 3 for c in p):
     return False
   return True
@@ -113,11 +113,25 @@ class Task:
           release(LB, c)
         else:
           release(LB)
+      elif s == 'Q':
+        press(LB)
+        click(Y, 0.6)
+        if c > 0:
+          release(LB, c - 0.6)
+        else:
+          release(LB)
       elif s == 'e':
         press(LB)
         click(X)
         if c > 0:
           release(LB, c)
+        else:
+          release(LB)
+      elif s == 'E':
+        press(LB)
+        click(X, 0.6)
+        if c > 0:
+          release(LB, c - 0.6)
         else:
           release(LB)
       elif s == 'p':
@@ -129,17 +143,17 @@ class Task:
 
   def endless(self):
     img = shot()
-    p = img.getpixel((886, 638))
+    p = img.getpixel((884, 655))
     if not any(c > 1 for c in p):
       self.stop_combo = True
       print('finish endless quest')
       return False
-    p = img.getpixel((658, 602))
+    p = img.getpixel((640, 630))
     if not any(c > 5 for c in p):
       self.pause_combo = True
       click(Y)
-    p = img.getpixel((835, 519))
-    if (214 < p[0] < 236) and (169 < p[1] < 191) and (73 < p[2] < 95):
+    p = img.getpixel((817, 516))
+    if not any(c > 1 for c in p):
       self.pause_combo = True
       if self.cur_turn >= TURN:
         self.stop_combo = True
