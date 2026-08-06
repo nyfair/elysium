@@ -1,0 +1,132 @@
+{
+    "info": {
+        "year": 2026,
+        "version": "3.3.10",
+        "description": "COCO Label Conversion",
+        "contributor": "CVHub",
+        "url": "https://github.com/CVHub520/X-AnyLabeling",
+        "date_created": "2026-02-15"
+    },
+    "licenses": [
+        {
+            "id": 1,
+            "url": "https://www.gnu.org/licenses/gpl-3.0.html",
+            "name": "GNU GENERAL PUBLIC LICENSE Version 3"
+        }
+    ],
+    "categories": [
+        {
+            "id": 6,
+            "name": "fish_bite",
+            "supercategory": ""
+        },
+        {
+            "id": 7,
+            "name": "fish_cast",
+            "supercategory": ""
+        },
+        {
+            "id": 8,
+            "name": "fish_chance",
+            "supercategory": ""
+        },
+        {
+            "id": 9,
+            "name": "fish_ease",
+            "supercategory": ""
+        },
+        {
+            "id": 35,
+            "name": "track_point",
+            "supercategory": ""
+        }
+    ],
+    "images": [
+        {
+            "license": 0,
+            "url": null,
+            "file_name": "images/1.png",
+            "height": 2160,
+            "width": 3840,
+            "date_captured": null,
+            "id": 9
+        }
+    ],
+    "annotations": [
+        {
+            "id": 9,
+            "image_id": 9,
+            "category_id": 35,
+            "bbox": [
+                3064,
+                1077,
+                65,
+                63
+            ],
+            "area": 4045,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
+        },
+        {
+            "id": 17,
+            "image_id": 9,
+            "category_id": 8,
+            "bbox": [
+                3519,
+                1844,
+                130,
+                141
+            ],
+            "area": 18330,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
+        },
+        {
+            "id": 18,
+            "image_id": 9,
+            "category_id": 7,
+            "bbox": [
+                3189,
+                1597,
+                152,
+                166
+            ],
+            "area": 25232,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
+        },
+        {
+            "id": 19,
+            "image_id": 9,
+            "category_id": 6,
+            "bbox": [
+                2924,
+                1596,
+                150,
+                169
+            ],
+            "area": 25350,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
+        },
+        {
+            "id": 20,
+            "image_id": 9,
+            "category_id": 9,
+            "bbox": [
+                2665,
+                1595,
+                146,
+                171
+            ],
+            "area": 24966,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
+        }
+    ]
+}

@@ -1,0 +1,44 @@
+name: build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - name: Prepare
+      run: git config --global core.autocrlf false
+    - uses: actions/checkout@v6
+    - name: Get version
+      id: version
+      shell: bash
+      run: |
+        VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+    - name: Setup UPX
+      uses: crazy-max/ghaction-upx@v4
+      with:
+        install-only: true
+        version: latest
+    - name: Compile
+      run: |
+        rustup set profile minimal
+        rustup update
+        cargo build --release
+        move target\release\*.exe .
+        upx --ultra-brute *.exe
+        7z a elysium-${{ steps.version.outputs.version }}.7z *.exe
+    - name: Release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create "${{ steps.version.outputs.tag }}" \
+          --title "${{ steps.version.outputs.tag }}" \
+          --generate-notes \
+          "elysium-${{ steps.version.outputs.version }}.7z"

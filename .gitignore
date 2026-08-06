@@ -1,0 +1,12 @@
+*
+!.github/
+!.github/**
+!.gitignore
+!/src/
+!/src/**
+!/dna/
+!/dna/**
+!/nte/
+!/nte/**
+!Cargo.toml
+!*.md
