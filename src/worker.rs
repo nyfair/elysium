@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use crate::{Args, GameType, k};
 use crate::input::Gamepad;
-use crate::script_engine::{self, TaskState, STOP};
+use crate::script_engine::{self, sleep, TaskState, STOP};
 use crate::vision::{self, Vision};
 
 const MAX_LOGS: usize = 200;
@@ -320,14 +320,26 @@ fn run_custom_inner(
     args: Args,
     shared: &Arc<Mutex<SharedState>>,
     state: &Arc<TaskState>,
-    _exit: &Arc<AtomicBool>,
-    _reset: &Arc<AtomicBool>,
+    exit: &Arc<AtomicBool>,
+    reset: &Arc<AtomicBool>,
 ) -> Result<()> {
     let resources = init_resources(game.clone(), shared, state, false)?;
     let ast = Arc::new(resources.engine.compile(&script)?);
 
     k!(shared).running = true;
+    let timeout = if args.timeout > 0 {
+        Duration::from_secs(args.timeout)
+    } else {
+        Duration::from_secs(ScriptMeta::DEFAULT_TIMEOUT)
+    };
     let handle = spawn_script(resources.engine.clone(), ast, args, resources.log.clone());
+    let start = Instant::now();
+    loop {
+        if check(&handle, exit, reset, timeout, start).is_some() {
+            break;
+        }
+        sleep(0.1);
+    }
     let _ = handle.join();
     resources.vision.stop();
     k!(shared).running = false;
