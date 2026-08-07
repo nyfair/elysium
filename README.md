@@ -4,30 +4,13 @@
 3. 超低的资源占用和依赖，没有笨重的耗电玩意
 
 **安装与使用**
-1. 先装手柄驱动 [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe)，不装的话虚拟手柄就是空气
+1. 先装手柄驱动 [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe)
 2. 游戏窗口调成 **1280x720**
-3. 程序本体开箱即用，鼠标点一点就能开工，同时支持命令行调用
+3. 程序本体开箱即用，同时支持命令行调用
 
-**适配游戏和预设脚本**
+**预览**
+<img alt="1" src="https://github.com/user-attachments/assets/d3894887-d3a3-4140-af29-107ecc217a68" />
 
-🕹️ 两个陀螺（dna）
-- 通用任务
-- 半自动挂机
-- 全自动挂机
-- 40夜航驱离 / 70夜航扼守
-- 钓鱼
-- 狩月人之阶SSS
-
-🎣 海特洛（nte）
-- 海上钓客
-
-**FAQ**
-
-**Q: 手柄操作影响我正在玩的游戏怎么办？**
-A: 用 ViGEmBus 作者亲手制作的 [HidHide](https://github.com/nefarius/HidHide)，把虚拟手柄藏起来，让正在玩的游戏以为它不存在。挂机和打游戏两不误，堪称时间管理大师。
-
-**Q: 报错了怎么办？**
-A: 淡定。脚本出错时错误会写进 `error.log`，看一眼，改一行，又是一条好汉。
-
-**Q: 怎么退出？**
-A: 配置页按 `Esc`，运行页按 `Esc` 停任务回配置页，全局 `Ctrl+C` 兜底。总有一款适合你。
+**FAQ**  
+手柄操作影响我正在玩的游戏怎么办？  
+使用同为ViGEmBus作者制作的 [HidHide](https://github.com/nefarius/HidHide)，把虚拟手柄针对你玩的游戏藏起来，挂机打游戏两不误

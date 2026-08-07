@@ -13,13 +13,6 @@ jobs:
     - name: Prepare
       run: git config --global core.autocrlf false
     - uses: actions/checkout@v6
-    - name: Get version
-      id: version
-      shell: bash
-      run: |
-        VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
-        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-        echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
     - name: Setup UPX
       uses: crazy-max/ghaction-upx@v4
       with:
@@ -32,13 +25,12 @@ jobs:
         cargo build --release
         move target\release\*.exe .
         upx --ultra-brute *.exe
-        7z a elysium-${{ steps.version.outputs.version }}.7z *.exe
-    - name: Release
-      shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        gh release create "${{ steps.version.outputs.tag }}" \
-          --title "${{ steps.version.outputs.tag }}" \
-          --generate-notes \
-          "elysium-${{ steps.version.outputs.version }}.7z"
+        7z a elysium.7z *.exe dna nte
+    - name: Upload
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: elysium.7z
+        tag: latest
+        overwrite: true
+        file_glob: true
