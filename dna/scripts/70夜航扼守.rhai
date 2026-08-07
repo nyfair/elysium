@@ -11,7 +11,6 @@ click("A", 0.1, 4.0);
 while !task_started() { sleep(0.2); }
 sleep(1.0);
 
-set_pause(false);
 let img = shot();
 if pixel_like(img, 632, 303, 255, 255, 200, 10) {
     run_combo("w1j4");

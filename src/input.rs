@@ -1,9 +1,7 @@
 use anyhow::Result;
 use vigem_client::{Client, TargetId, Xbox360Wired, XButtons, XGamepad};
-use std::thread;
-use std::time::Duration;
 
-use crate::sleep;
+use crate::script_engine::sleep;
 
 pub const UP: XButtons = XButtons!(UP);
 pub const DOWN: XButtons = XButtons!(DOWN);
@@ -40,13 +38,13 @@ impl Gamepad {
     pub fn press(&mut self, button: XButtons, hold: f64) {
         self.press_raw(button);
         self.update();
-        sleep!(hold);
+        sleep(hold);
     }
 
     pub fn release(&mut self, button: XButtons, post: f64) {
         self.release_raw(button);
         self.update();
-        sleep!(post);
+        sleep(post);
     }
 
     pub fn press_raw(&mut self, button: XButtons) {
@@ -74,14 +72,14 @@ impl Gamepad {
         self.state.thumb_lx = x;
         self.state.thumb_ly = y;
         self.update();
-        sleep!(duration);
+        sleep(duration);
     }
 
     pub fn rstick(&mut self, x: i16, y: i16, duration: f64) {
         self.state.thumb_rx = x;
         self.state.thumb_ry = y;
         self.update();
-        sleep!(duration);
+        sleep(duration);
     }
 
     pub fn reset(&mut self) {

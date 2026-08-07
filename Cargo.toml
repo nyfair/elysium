@@ -15,7 +15,14 @@ vigem-client = "0"
 rhai = { version = "1", features = ["sync"] }
 ratatui = "0"
 
+[[bin]]
+name = "obs64"
+path = "src/main.rs"
+
 [profile.release]
 strip = true
 lto = true
 codegen-units = 1
+
+[profile.dev]
+opt-level = 3

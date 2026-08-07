@@ -12,5 +12,8 @@
 <img alt="1" src="https://github.com/user-attachments/assets/d3894887-d3a3-4140-af29-107ecc217a68" />
 
 **FAQ**  
-手柄操作影响我正在玩的游戏怎么办？  
+1. **手柄操作影响我正在玩的游戏怎么办？**  
 使用同为ViGEmBus作者制作的 [HidHide](https://github.com/nefarius/HidHide)，把虚拟手柄针对你玩的游戏藏起来，挂机打游戏两不误
+
+2. **为什么应用名和项目名不一样？**  
+应用白名单机制，而且截图的原理和该款应用一致

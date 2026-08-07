@@ -12,21 +12,16 @@ use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use windows::core::PCWSTR;
 use windows::Win32::UI::Shell::{IsUserAnAdmin, ShellExecuteW};
-use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+use windows::Win32::UI::WindowsAndMessaging;
+use windows_capture::window::Window;
 
 #[macro_export]
 macro_rules! k {
     ($mutex:expr) => {
         $mutex.lock().unwrap()
-    };
-}
-
-#[macro_export]
-macro_rules! sleep {
-    ($time:expr) => {
-        thread::sleep(Duration::from_secs_f64($time as f64))
     };
 }
 
@@ -100,7 +95,7 @@ fn relaunch_as_admin() -> Result<()> {
             PCWSTR::from_raw(exe_w.as_ptr()),
             PCWSTR::from_raw(params_w.as_ptr()),
             PCWSTR::from_raw(dir_w.as_ptr()),
-            SW_SHOWNORMAL,
+            WindowsAndMessaging::SW_SHOWNORMAL,
         )
     };
     if result.0 as isize <= 32 {
@@ -111,7 +106,7 @@ fn relaunch_as_admin() -> Result<()> {
 
 fn main() -> Result<()> {
     unsafe {
-        let _ = windows::Win32::UI::WindowsAndMessaging::SetProcessDPIAware();
+        let _ = WindowsAndMessaging::SetProcessDPIAware();
     }
     let args = Args::parse();
 
@@ -133,7 +128,7 @@ fn main() -> Result<()> {
     };
 
     if task == "shot" {
-        let window = windows_capture::window::Window::from_contains_name(game.title())
+        let window = Window::from_contains_name(game.title())
             .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{}", e))?;
         let vision = vision::Vision::start(window)?;
         vision.shot_to_file("shot.png")?;
@@ -142,7 +137,7 @@ fn main() -> Result<()> {
     }
 
     if task == "act" {
-        let window = windows_capture::window::Window::from_contains_name(game.title())
+        let window = Window::from_contains_name(game.title())
             .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{}", e))?;
         vision::activate_window(&window);
         println!("窗口已激活");
@@ -153,7 +148,7 @@ fn main() -> Result<()> {
 }
 
 fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
-    let window = windows_capture::window::Window::from_contains_name(game.title())
+    let window = Window::from_contains_name(game.title())
         .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{}", e))?;
     vision::activate_window(&window);
     let vision = Arc::new(vision::Vision::start(window)?);
@@ -161,7 +156,11 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
         .context("无法连接虚拟手柄：请以管理员身份运行，或确认已安装 ViGEmBus 驱动")?));
     let assets = Arc::new(vision::load_assets(game.name(), 720)?);
 
-    let mut engine = script_engine::new_engine(&vision, &pad, &assets);
+    let state = Arc::new(script_engine::TaskState {
+        pause: Arc::new(Mutex::new(false)),
+        cur_turn: Arc::new(Mutex::new(1)),
+    });
+    let mut engine = script_engine::new_engine(&vision, &pad, &assets, &state);
     let log: Arc<dyn Fn(&str) + Send + Sync> = Arc::new(|msg| println!("{msg}"));
     let l = log.clone();
     engine.on_print(move |msg: &str| l(msg));
@@ -169,11 +168,6 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     let script = std::fs::read_to_string(&format!("{}/scripts/{}.rhai", game.name(), task))
         .map_err(|e| anyhow::anyhow!("找不到任务脚本：{e}"))?;
 
-    let state = Arc::new(dna::TaskState {
-        stop: Arc::new(Mutex::new(false)),
-        pause: Arc::new(Mutex::new(false)),
-        cur_turn: Arc::new(Mutex::new(1)),
-    });
     match game {
         GameType::Dna => {
             dna::setup_engine(&mut engine, &vision, &pad, &state);
@@ -189,6 +183,11 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     let has_script_ended = ast
         .iter_functions()
         .any(|f| f.name == "task_ended" && f.params.is_empty());
+    let timeout = if args.timeout > 0 {
+        Duration::from_secs(args.timeout)
+    } else {
+        Duration::from_secs(meta.timeout)
+    };
     dna::run(
         Arc::new(engine),
         vision,
@@ -201,7 +200,7 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
         log,
         has_script_ended,
         meta.r#loop,
-        meta.timeout,
+        timeout,
     )?;
     Ok(())
 }

@@ -1,18 +1,49 @@
 use anyhow::{Context, Result};
 use rhai::{AST, Engine, Scope};
 use std::collections::VecDeque;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::{Args, GameType, k};
-use crate::dna::{self, TaskState};
 use crate::input::Gamepad;
-use crate::script_engine;
+use crate::script_engine::{self, TaskState, STOP};
 use crate::vision::{self, Vision};
 
 const MAX_LOGS: usize = 200;
+
+pub enum StopReason {
+    Finished,
+    Exit,
+    Reset,
+    Timeout,
+}
+
+pub fn check(
+    handle: &JoinHandle<()>,
+    exit: &AtomicBool,
+    reset: &AtomicBool,
+    timeout: Duration,
+    start: Instant,
+) -> Option<StopReason> {
+    if handle.is_finished() {
+        return Some(StopReason::Finished);
+    }
+    if exit.load(Ordering::SeqCst) {
+        STOP.store(true, Ordering::SeqCst);
+        return Some(StopReason::Exit);
+    }
+    if reset.swap(false, Ordering::SeqCst) {
+        STOP.store(true, Ordering::SeqCst);
+        return Some(StopReason::Reset);
+    }
+    if start.elapsed() > timeout {
+        STOP.store(true, Ordering::SeqCst);
+        return Some(StopReason::Timeout);
+    }
+    None
+}
 
 pub struct ScriptMeta {
     pub author: String,
@@ -21,13 +52,17 @@ pub struct ScriptMeta {
     pub timeout: u64,
 }
 
+impl ScriptMeta {
+    const DEFAULT_TIMEOUT: u64 = 86400;
+}
+
 impl Default for ScriptMeta {
     fn default() -> Self {
         Self {
             author: String::new(),
             desc: String::new(),
             r#loop: true,
-            timeout: 0,
+            timeout: Self::DEFAULT_TIMEOUT,
         }
     }
 }
@@ -64,7 +99,7 @@ pub fn parse_meta(script: &str) -> ScriptMeta {
         author: v.get("author").and_then(|x| x.as_str()).unwrap_or("").to_string(),
         desc: v.get("desc").and_then(|x| x.as_str()).unwrap_or("").to_string(),
         r#loop: v.get("loop").and_then(|x| x.as_bool()).unwrap_or(true),
-        timeout: v.get("timeout").and_then(|x| x.as_u64()).unwrap_or(0),
+        timeout: v.get("timeout").and_then(|x| x.as_u64()).unwrap_or(ScriptMeta::DEFAULT_TIMEOUT),
     }
 }
 
@@ -132,7 +167,7 @@ fn init_resources(
 ) -> Result<Resources> {
     let game_name = game.name();
     let title = match game {
-        GameType::Dna => dna::WINDOW_TITLE,
+        GameType::Dna => crate::dna::WINDOW_TITLE,
         GameType::Nte => crate::nte::WINDOW_TITLE,
     };
     let window = windows_capture::window::Window::from_contains_name(title)
@@ -153,7 +188,7 @@ fn init_resources(
 
     let assets = Arc::new(vision::load_assets(game_name, 720)?);
 
-    let mut engine = script_engine::new_engine(&vision, &pad, &assets);
+    let mut engine = script_engine::new_engine(&vision, &pad, &assets, state);
     let sh = shared.clone();
     let log: Arc<dyn Fn(&str) + Send + Sync> =
         Arc::new(move |msg| SharedState::push_log(&sh, msg.to_string()));
@@ -162,7 +197,7 @@ fn init_resources(
 
     match game {
         GameType::Dna => {
-            dna::setup_engine(&mut engine, &vision, &pad, state);
+            crate::dna::setup_engine(&mut engine, &vision, &pad, state);
         }
         GameType::Nte => {
             crate::nte::setup_engine(&mut engine, state);
@@ -176,7 +211,6 @@ fn init_resources(
 pub fn spawn(game: GameType, task: String, args: Args) -> Result<Worker> {
     let shared = SharedState::new();
     let state = Arc::new(TaskState {
-        stop: Arc::new(Mutex::new(false)),
         pause: Arc::new(Mutex::new(false)),
         cur_turn: Arc::new(Mutex::new(1)),
     });
@@ -200,7 +234,6 @@ pub fn spawn(game: GameType, task: String, args: Args) -> Result<Worker> {
 pub fn spawn_custom(game: GameType, script: String, args: Args) -> Result<Worker> {
     let shared = SharedState::new();
     let state = Arc::new(TaskState {
-        stop: Arc::new(Mutex::new(false)),
         pause: Arc::new(Mutex::new(false)),
         cur_turn: Arc::new(Mutex::new(1)),
     });
@@ -240,21 +273,38 @@ fn run_inner(
         .iter_functions()
         .any(|f| f.name == "task_ended" && f.params.is_empty());
 
+    let timeout = if args.timeout > 0 {
+        Duration::from_secs(args.timeout)
+    } else {
+        Duration::from_secs(meta.timeout)
+    };
+
     k!(shared).running = true;
-    let result = dna::run(
-        resources.engine.clone(),
-        resources.vision.clone(),
-        resources.pad.clone(),
-        ast,
-        args,
-        state.clone(),
-        exit.clone(),
-        reset.clone(),
-        resources.log.clone(),
-        has_script_ended,
-        meta.r#loop,
-        meta.timeout,
-    );
+    let result = match game {
+        GameType::Dna => crate::dna::run(
+            resources.engine.clone(),
+            resources.vision.clone(),
+            resources.pad.clone(),
+            ast,
+            args,
+            state.clone(),
+            exit.clone(),
+            reset.clone(),
+            resources.log.clone(),
+            has_script_ended,
+            meta.r#loop,
+            timeout,
+        ),
+        GameType::Nte => crate::nte::run(
+            resources.engine.clone(),
+            ast,
+            args,
+            exit.clone(),
+            reset.clone(),
+            timeout,
+            resources.log.clone(),
+        ),
+    };
     if let Err(e) = result {
         SharedState::push_log(shared, format!("任务出错：{e:#}"));
     }

@@ -12,7 +12,6 @@ while !task_started() { sleep(0.2); }
 sleep(1.0);
 if STRATEGY.len() > 0 { run_combo(STRATEGY); }
 
-set_pause(false);
 while !get_stop() {
     let img = shot();
     if (pixel_equal(img, 881, 655, 0, 0, 0)

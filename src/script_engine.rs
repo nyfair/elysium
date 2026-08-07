@@ -1,22 +1,53 @@
 use rhai::{Array, Engine};
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 use crate::vision::{Vision, AssetMap, get_pixel, pixel_equal, pixel_like, ncc_match};
 use crate::input::*;
-use crate::{k, sleep};
+use crate::k;
 
 type Frame = Arc<Mutex<image::ImageBuffer<image::Rgb<u8>, Vec<u8>>>>;
+
+pub static STOP: AtomicBool = AtomicBool::new(false);
+
+pub fn sleep(secs: f64) {
+    let mut waited = 0.0f64;
+    while waited < secs {
+        if STOP.load(Ordering::SeqCst) {
+            break;
+        }
+        let step = 0.2f64.min(secs - waited);
+        thread::sleep(Duration::from_secs_f64(step));
+        waited += step;
+    }
+}
+
+pub struct TaskState {
+    pub pause: Arc<Mutex<bool>>,
+    pub cur_turn: Arc<Mutex<i64>>,
+}
 
 pub fn new_engine(
     vision: &Arc<Vision>,
     pad: &Arc<Mutex<Gamepad>>,
     assets: &Arc<AssetMap>,
+    state: &TaskState,
 ) -> Engine {
     let mut engine = Engine::new();
-    engine.register_fn("sleep", |d: f64| { sleep!(d) });
+    engine.register_fn("set_stop", move |val: bool| STOP.store(val, Ordering::SeqCst));
+    engine.register_fn("get_stop", move || -> bool { STOP.load(Ordering::SeqCst) });
+    let pa = state.pause.clone();
+    engine.register_fn("set_pause", move |val: bool| *k!(pa) = val);
+    let pa = state.pause.clone();
+    engine.register_fn("get_pause", move || -> bool { *k!(pa) });
+    let t = state.cur_turn.clone();
+    engine.register_fn("set_turn", move |val: i64| *k!(t) = val);
+    let t = state.cur_turn.clone();
+    engine.register_fn("get_turn", move || -> i64 { *k!(t) });
+    engine.register_fn("sleep", |d: f64| { sleep(d) });
     let v = vision.clone();
     engine.register_fn("shot", move || -> Frame {
         Arc::new(Mutex::new(v.shot().unwrap()))

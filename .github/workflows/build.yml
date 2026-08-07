@@ -2,9 +2,7 @@ name: build
 
 on:
   workflow_dispatch:
-
-permissions:
-  contents: write
+  push:
 
 jobs:
   build:
