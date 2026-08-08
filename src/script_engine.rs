@@ -1,9 +1,9 @@
-use rhai::{Array, Engine};
+use rhai::{Array, Dynamic, Engine};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::vision::{Vision, AssetMap, get_pixel, pixel_equal, pixel_like, ncc_match};
 use crate::input::*;
@@ -30,6 +30,15 @@ pub struct TaskState {
     pub cur_turn: Arc<Mutex<i64>>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum StopReason {
+    Finished,
+    Exit,
+    Reset,
+    Timeout,
+    TaskEnded,
+}
+
 pub fn new_engine(
     vision: &Arc<Vision>,
     pad: &Arc<Mutex<Gamepad>>,
@@ -37,8 +46,19 @@ pub fn new_engine(
     state: &TaskState,
 ) -> Engine {
     let mut engine = Engine::new();
-    engine.register_fn("set_stop", move |val: bool| STOP.store(val, Ordering::SeqCst));
-    engine.register_fn("get_stop", move || -> bool { STOP.load(Ordering::SeqCst) });
+    engine.on_progress(move |_ops| {
+        if STOP.load(Ordering::SeqCst) {
+            Some(Dynamic::from(StopReason::Exit))
+        } else {
+            None
+        }
+    });
+    engine.register_raw_fn("rand", &[std::any::TypeId::of::<i64>()], |_, args| {
+        let max_val = args[0].as_int().unwrap_or(1);
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros() as i64;
+        let limit = if max_val <= 0 { 1 } else { max_val };
+        Ok(nanos % limit)
+    });
     let pa = state.pause.clone();
     engine.register_fn("set_pause", move |val: bool| *k!(pa) = val);
     let pa = state.pause.clone();
@@ -47,7 +67,7 @@ pub fn new_engine(
     engine.register_fn("set_turn", move |val: i64| *k!(t) = val);
     let t = state.cur_turn.clone();
     engine.register_fn("get_turn", move || -> i64 { *k!(t) });
-    engine.register_fn("sleep", |d: f64| { sleep(d) });
+    engine.register_fn("wait", |d: f64| { sleep(d) });
     let v = vision.clone();
     engine.register_fn("shot", move || -> Frame {
         Arc::new(Mutex::new(v.shot().unwrap()))

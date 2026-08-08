@@ -8,17 +8,16 @@ click("Y", 0.1, 0.2);
 for b in 0..BOOST { click("RIGHT"); }
 click("A");
 click("A", 0.1, 4.0);
-while !task_started() { sleep(0.2); }
-sleep(1.0);
+while !task_started() { wait(0.2); }
+wait(1.0);
 if STRATEGY.len() > 0 { run_combo(STRATEGY); }
 
-while !get_stop() {
+loop {
     let img = shot();
     if (pixel_equal(img, 881, 655, 0, 0, 0)
         && pixel_equal(img, 1123, 655, 0, 0, 0)
         && !pixel_equal(img, 900, 681, 0, 0, 0)
     ) {
-        set_stop(true);
         print("无尽任务完成");
         break;
     }
@@ -35,7 +34,6 @@ while !get_stop() {
     ) {
         set_pause(true);
         if get_turn() >= TURN {
-            set_stop(true);
             click("X", 1.2);
             print("达到最大轮数");
             break;
@@ -50,6 +48,6 @@ while !get_stop() {
     if COMBO.len() > 0 {
         run_combo(COMBO);
     } else {
-        sleep(0.5);
+        wait(0.5);
     }
 }

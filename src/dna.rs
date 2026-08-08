@@ -1,12 +1,12 @@
 use anyhow::Result;
-use rhai::{Engine, Scope, AST};
+use rhai::{CallFnOptions, Engine, Scope, AST};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::input::*;
-use crate::script_engine::{sleep, TaskState, STOP};
+use crate::script_engine::{sleep, TaskState, StopReason, STOP};
 use crate::vision::{Vision, pixel_equal};
 use crate::worker;
 use crate::{Args, k};
@@ -26,14 +26,6 @@ pub fn setup_engine(
     engine.register_fn("task_started", move || -> bool { task_started(&v).unwrap() });
     let v = vision.clone();
     engine.register_fn("task_ended", move || -> bool { task_ended(&v).unwrap() });
-}
-
-enum StopReason {
-    Finished,
-    Exit,
-    Reset,
-    Timeout,
-    TaskEnded,
 }
 
 pub fn run(
@@ -61,6 +53,7 @@ pub fn run(
         if exit.load(Ordering::SeqCst) {
             break;
         }
+        STOP.store(false, Ordering::SeqCst);
         if loop_enabled {
             log("等待任务结束");
             while !detect_ended(&engine, &ast, &mut detect_scope, &vision, has_script_ended)? {
@@ -71,7 +64,6 @@ pub fn run(
             }
         }
 
-        STOP.store(false, Ordering::SeqCst);
         *k!(&state.pause) = false;
         *k!(&state.cur_turn) = 1;
         let handle = worker::spawn_script(engine.clone(), ast.clone(), args.clone(), log.clone());
@@ -92,16 +84,12 @@ pub fn run(
                 }
             }
             if let Some(r) = worker::check(&handle, &exit, &reset, timeout, start) {
-                break match r {
-                    worker::StopReason::Finished => StopReason::Finished,
-                    worker::StopReason::Exit => StopReason::Exit,
-                    worker::StopReason::Reset => StopReason::Reset,
-                    worker::StopReason::Timeout => StopReason::Timeout,
-                };
+                break r;
             }
             sleep(0.5);
         };
         let _ = handle.join();
+        STOP.store(false, Ordering::SeqCst);
 
         match reason {
             StopReason::Reset => {
@@ -136,7 +124,13 @@ fn detect_ended(
 ) -> Result<bool> {
     if has_script_ended {
         engine
-            .call_fn::<bool>(scope, ast, "task_ended", ())
+            .call_fn_with_options(
+                CallFnOptions::new().eval_ast(false),
+                scope,
+                ast,
+                "task_ended",
+                (),
+            )
             .map_err(|e| anyhow::anyhow!("{e}"))
     } else {
         task_ended(vision)

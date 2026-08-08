@@ -4,13 +4,12 @@
 //   "loop": false,
 //   "timeout": 20000
 // }
-while !get_stop() {
+loop {
     let img = shot();
     if (pixel_equal(img, 881, 655, 0, 0, 0)
         && pixel_equal(img, 1123, 655, 0, 0, 0)
         && !pixel_equal(img, 900, 681, 0, 0, 0)
     ) {
-        set_stop(true);
         print("无尽任务完成");
         break;
     }
@@ -27,7 +26,6 @@ while !get_stop() {
     ) {
         set_pause(true);
         if get_turn() >= TURN {
-            set_stop(true);
             click("X", 1.2);
             print("达到最大轮数");
             break;
@@ -42,6 +40,6 @@ while !get_stop() {
     if COMBO.len() > 0 {
         run_combo(COMBO);
     } else {
-        sleep(0.5);
+        wait(0.5);
     }
 }

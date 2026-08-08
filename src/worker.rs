@@ -8,17 +8,10 @@ use std::time::{Duration, Instant};
 
 use crate::{Args, GameType, k};
 use crate::input::Gamepad;
-use crate::script_engine::{self, sleep, TaskState, STOP};
+use crate::script_engine::{self, sleep, TaskState, STOP, StopReason};
 use crate::vision::{self, Vision};
 
 const MAX_LOGS: usize = 200;
-
-pub enum StopReason {
-    Finished,
-    Exit,
-    Reset,
-    Timeout,
-}
 
 pub fn check(
     handle: &JoinHandle<()>,
@@ -105,7 +98,6 @@ pub fn parse_meta(script: &str) -> ScriptMeta {
 
 pub struct SharedState {
     pub running: bool,
-    pub cycle: u64,
     pub logs: VecDeque<String>,
     pub started_at: Instant,
     pub error: Option<String>,
@@ -115,7 +107,6 @@ impl SharedState {
     pub fn new() -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             running: false,
-            cycle: 0,
             logs: VecDeque::new(),
             started_at: Instant::now(),
             error: None,
@@ -327,6 +318,7 @@ fn run_custom_inner(
     let ast = Arc::new(resources.engine.compile(&script)?);
 
     k!(shared).running = true;
+    STOP.store(false, Ordering::SeqCst);
     let timeout = if args.timeout > 0 {
         Duration::from_secs(args.timeout)
     } else {
@@ -341,6 +333,7 @@ fn run_custom_inner(
         sleep(0.1);
     }
     let _ = handle.join();
+    STOP.store(false, Ordering::SeqCst);
     resources.vision.stop();
     k!(shared).running = false;
     SharedState::push_log(shared, "脚本执行结束".into());
@@ -353,6 +346,7 @@ pub fn spawn_script(
     args: Args,
     log: Arc<dyn Fn(&str) + Send + Sync>,
 ) -> JoinHandle<()> {
+    STOP.store(false, Ordering::SeqCst);
     thread::Builder::new()
         .name("task-sub".into())
         .spawn(move || {
@@ -364,10 +358,7 @@ pub fn spawn_script(
             scope.push_constant("TIMEOUT", args.timeout);
             match engine.run_ast_with_scope(&mut scope, &ast) {
                 Ok(()) => log("脚本执行完毕"),
-                Err(e) => {
-                    log(&format!("脚本出错：{e}"));
-                    let _ = std::fs::write("error.log", format!("{e}\n"));
-                }
+                Err(_) => {},
             }
         })
         .expect("spawn sub thread")

@@ -42,11 +42,9 @@ fn ease(img) {
 
 let timeout = 40.0;
 loop {
-    if get_stop() { break; }
     let start = timestamp();
     let casted = false;
     while !is_timeout(start, timeout) {
-        if get_stop() { break; }
         let img = shot();
         if pixel_like(img, 763, 295, 255, 255, 255, 10) {
             click("B");
@@ -62,7 +60,7 @@ loop {
             continue;
         }
         if !pixel_like(img, 1192, 653, 255, 255, 255, 4) {
-            sleep(0.1);
+            wait(0.1);
             continue;
         }
         let p = get_pixel(img, 1159, 648);
@@ -80,7 +78,6 @@ loop {
     }
 
     while !is_timeout(start, timeout) {
-        if get_stop() { break; }
         let img = shot();
         let p = get_pixel(img, 1159, 648);
         if p[2] > 252 {
@@ -89,7 +86,7 @@ loop {
             break;
         } else {
             print("wait for bite");
-            sleep(0.1);
+            wait(0.1);
         }
     }
     if is_timeout(start, timeout) {
@@ -100,7 +97,6 @@ loop {
     print("fish ease");
     let key = "";
     while !is_timeout(start, timeout) {
-        if get_stop() { break; }
         let img = shot();
         let r = ease(img);
         let y = r[0];
@@ -126,7 +122,7 @@ loop {
             press("RT", 0.0);
             key = "RT";
         }
-        sleep(0.05);
+        wait(0.05);
     }
     if is_timeout(start, timeout) {
         click("B", 0.1, 1.0);
@@ -135,15 +131,14 @@ loop {
 
     let start = timestamp() - timeout + 10.0;
     while !is_timeout(start, timeout) {
-        if get_stop() { break; }
         let img = shot();
         if pixel_like(img, 647, 317, 255, 255, 255, 10) {
             print("finish fish");
-            sleep(2.5);
+            wait(2.5);
             click("B");
             break;
         } else {
-            sleep(0.1);
+            wait(0.1);
         }
     }
     if is_timeout(start, timeout) {

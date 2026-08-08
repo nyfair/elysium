@@ -21,20 +21,16 @@ pub fn run(
     timeout: std::time::Duration,
     log: Arc<dyn Fn(&str) + Send + Sync>,
 ) -> Result<()> {
+    STOP.store(false, Ordering::SeqCst);
     let handle = worker::spawn_script(engine, ast, args, log);
     let start = Instant::now();
-    let reason = loop {
-        if let Some(r) = worker::check(&handle, &exit, &reset, timeout, start) {
-            break r;
+    loop {
+        if worker::check(&handle, &exit, &reset, timeout, start).is_some() {
+            break;
         }
         sleep(0.1);
-    };
-    let _ = handle.join();
-    match reason {
-        worker::StopReason::Reset | worker::StopReason::Timeout => {
-            STOP.store(false, Ordering::SeqCst);
-        }
-        _ => {}
     }
+    let _ = handle.join();
+    STOP.store(false, Ordering::SeqCst);
     Ok(())
 }

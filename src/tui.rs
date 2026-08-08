@@ -70,6 +70,9 @@ struct App {
     timeout: String,
     combo: String,
     strategy: String,
+    default_boost: String,
+    default_turn: String,
+    default_timeout: String,
     game_rect: Option<Rect>,
     task_rect: Option<Rect>,
     param_rect: Option<Rect>,
@@ -100,6 +103,9 @@ impl App {
             timeout: args.timeout.to_string(),
             combo: args.combo.clone(),
             strategy: args.strategy.clone(),
+            default_boost: args.boost.to_string(),
+            default_turn: args.turn.to_string(),
+            default_timeout: args.timeout.to_string(),
             game_rect: None,
             task_rect: None,
             param_rect: None,
@@ -347,9 +353,24 @@ fn handle_config_key(app: &mut App, key: KeyEvent) {
         KeyCode::Char(c) if app.focus == Focus::Param => match app.param_idx {
             0 => app.strategy.push(c),
             1 => app.combo.push(c),
-            2 if c.is_ascii_digit() => app.timeout.push(c),
-            3 if c.is_ascii_digit() => app.boost.push(c),
-            4 if c.is_ascii_digit() => app.turn.push(c),
+            2 if c.is_ascii_digit() => {
+                if app.timeout == app.default_timeout {
+                    app.timeout.clear();
+                }
+                app.timeout.push(c);
+            }
+            3 if c.is_ascii_digit() => {
+                if app.boost == app.default_boost {
+                    app.boost.clear();
+                }
+                app.boost.push(c);
+            }
+            4 if c.is_ascii_digit() => {
+                if app.turn == app.default_turn {
+                    app.turn.clear();
+                }
+                app.turn.push(c);
+            }
             _ => {}
         },
         _ => {}
@@ -558,7 +579,6 @@ fn draw_running(f: &mut Frame, app: &mut App) {
         .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(1)])
         .split(area);
 
-    // 状态行
     let (status, color) = if let Some(err) = &shared.error {
         (format!("错误: {err}"), Color::Red)
     } else if *k!(&w.state.pause) {
@@ -576,13 +596,12 @@ fn draw_running(f: &mut Frame, app: &mut App) {
         )
     } else {
         format!(
-            " {} / {}   状态:{}   时长 {:02}:{:02}   循环 #{} ",
+            " {} / {}   状态:{}   时长 {:02}:{:02} ",
             app.selected_game().title(),
             app.tasks.get(app.selected_task).cloned().unwrap_or_default(),
             status,
             elapsed.as_secs() / 60,
-            elapsed.as_secs() % 60,
-            shared.cycle
+            elapsed.as_secs() % 60
         )
     };
     let status_line = Paragraph::new(title).style(Style::default().fg(color).add_modifier(Modifier::BOLD));

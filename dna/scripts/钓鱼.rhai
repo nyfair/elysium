@@ -11,30 +11,29 @@ fn get_score(template, x, y, w, h) {
 }
 
 fn wait_condition(template, x, y, w, h, threshold) {
-    while !get_stop() {
+    loop {
         let score = get_score(template, x, y, w, h);
         print(`${template}:${score}`);
         if score > threshold {
             return;
         }
-        sleep(0.1);
+        wait(0.1);
     }
 }
 
 click("A");
 let ease = false;
 for i in 0..100 {
-    if get_stop() { break; }
     if !ease {
         wait_condition("fish_ease", 1070, 540, 120, 120, 0.6);
         click("A", 0.1, 1.0);
     }
     wait_condition("fish_bite", 1070, 540, 120, 120, 0.4);
-    sleep(3.0);
+    wait(3.0);
     wait_condition("fish_ease", 1070, 540, 120, 120, 0.4);
     click("A", 0.1, 4.0);
     let score = 0.0;
-    while score < 0.2 && !get_stop() {
+    while score < 0.2 {
         score = get_score("fish_ease", 1070, 540, 120, 120);
         print(`fish_done:${score}`);
         click("A", 0.1, 0.2);
@@ -45,7 +44,7 @@ for i in 0..100 {
         click("A", 0.1, 1.0);
         ease = true;
     } else {
-        sleep(2.0);
+        wait(2.0);
         ease = false;
     }
 }

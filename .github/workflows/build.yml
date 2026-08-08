@@ -23,7 +23,7 @@ jobs:
         cargo build --release
         move target\release\*.exe .
         upx --ultra-brute *.exe
-        7z a elysium.7z *.exe dna nte
+        7z a elysium.7z *.exe dna nte *.md
     - name: Upload
       uses: svenstaro/upload-release-action@v2
       with:

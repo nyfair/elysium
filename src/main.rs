@@ -188,19 +188,30 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     } else {
         Duration::from_secs(meta.timeout)
     };
-    dna::run(
-        Arc::new(engine),
-        vision,
-        pad,
-        ast,
-        args.clone(),
-        state,
-        exit,
-        reset,
-        log,
-        has_script_ended,
-        meta.r#loop,
-        timeout,
-    )?;
+    match game {
+        GameType::Dna => dna::run(
+            Arc::new(engine),
+            vision,
+            pad,
+            ast,
+            args.clone(),
+            state,
+            exit,
+            reset,
+            log,
+            has_script_ended,
+            meta.r#loop,
+            timeout,
+        )?,
+        GameType::Nte => nte::run(
+            Arc::new(engine),
+            ast,
+            args.clone(),
+            exit,
+            reset,
+            timeout,
+            log,
+        )?,
+    }
     Ok(())
 }
