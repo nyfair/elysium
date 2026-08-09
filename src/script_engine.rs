@@ -30,7 +30,7 @@ pub struct TaskState {
     pub cur_turn: Arc<Mutex<i64>>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StopReason {
     Finished,
     Exit,

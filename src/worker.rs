@@ -9,9 +9,17 @@ use std::time::{Duration, Instant};
 use crate::{Args, GameType, k};
 use crate::input::Gamepad;
 use crate::script_engine::{self, sleep, TaskState, STOP, StopReason};
-use crate::vision::{self, Vision};
+use crate::vision::{self, AssetMap, Vision};
 
 const MAX_LOGS: usize = 200;
+
+#[derive(Clone)]
+struct GameResources {
+    pad: Arc<Mutex<Gamepad>>,
+    assets: Arc<AssetMap>,
+}
+
+static RES_CACHE: Mutex<Option<(GameType, GameResources)>> = Mutex::new(None);
 
 pub fn check(
     handle: &JoinHandle<()>,
@@ -173,11 +181,24 @@ fn init_resources(
     }
     SharedState::push_log(shared, format!("正在捕获窗口：{title}"));
 
-    let pad = Arc::new(Mutex::new(Gamepad::new()
-        .context("无法连接虚拟手柄：请以管理员身份运行，或确认已安装 ViGEmBus 驱动")?));
-    SharedState::push_log(shared, "虚拟手柄已就绪".into());
-
-    let assets = Arc::new(vision::load_assets(game_name, 720)?);
+    let cached = k!(RES_CACHE).clone();
+    let (pad, assets) = match cached {
+        Some((g, res)) if g == game => {
+            k!(res.pad).reset();
+            (res.pad, res.assets)
+        }
+        _ => {
+            let pad = Arc::new(Mutex::new(Gamepad::new()
+                .context("无法连接虚拟手柄：请以管理员身份运行，或确认已安装 ViGEmBus 驱动")?));
+            let assets = Arc::new(vision::load_assets(game_name, 720)?);
+            *k!(RES_CACHE) = Some((
+                game.clone(),
+                GameResources { pad: pad.clone(), assets: assets.clone() },
+            ));
+            SharedState::push_log(shared, "虚拟手柄已就绪".into());
+            (pad, assets)
+        }
+    };
 
     let mut engine = script_engine::new_engine(&vision, &pad, &assets, state);
     let sh = shared.clone();
@@ -358,7 +379,19 @@ pub fn spawn_script(
             scope.push_constant("TIMEOUT", args.timeout);
             match engine.run_ast_with_scope(&mut scope, &ast) {
                 Ok(()) => log("脚本执行完毕"),
-                Err(_) => {},
+                Err(e) => {
+                    let stopped = matches!(
+                        e.as_ref(),
+                        rhai::EvalAltResult::ErrorTerminated(t, _)
+                            if t.clone().try_cast::<StopReason>() == Some(StopReason::Exit)
+                    );
+                    if stopped {
+                        log("脚本被停止");
+                    } else {
+                        log(&format!("脚本出错：{e}"));
+                        let _ = std::fs::write("error.log", format!("{e}\n"));
+                    }
+                }
             }
         })
         .expect("spawn sub thread")

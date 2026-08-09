@@ -32,7 +32,7 @@ let img = shot();
 let p = get_pixel(img, 1139, 641);
 if (p[0] == 255 && p[1] == 255) {
     click("X");
-} {
+} else {
     click("Y");
 }
 print("new stage");
@@ -85,9 +85,9 @@ loop {
             run_combo("e1");
             vitamin = 2;
         }
-        run_combo("l5L0");
+        run_combo("l3L0");
         vitamin -= 1;
     } else {
-        wait(0.2);
+        wait(0.1);
     }
 }
