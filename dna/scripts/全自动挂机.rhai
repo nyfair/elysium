@@ -4,10 +4,10 @@
 //   "loop": true,
 //   "timeout": 20000
 // }
-click("Y", 0.1, 0.2);
-for b in 0..BOOST { click("RIGHT"); }
-click("A");
-click("A", 0.1, 4.0);
+click(Y, 0.1, 0.2);
+for b in 0..BOOST { click(RIGHT); }
+click(A);
+click(A, 0.1, 4.0);
 while !task_started() { wait(0.2); }
 wait(1.0);
 if STRATEGY.len() > 0 { run_combo(STRATEGY); }
@@ -26,7 +26,7 @@ loop {
         && !pixel_equal(img, 550, 631, 0, 0, 0)
     ) {
         set_pause(true);
-        click("Y");
+        click(Y);
     }
     if (pixel_like(img, 381, 509, 30, 58, 50, 5)
         && pixel_like(img, 477, 509, 30, 58, 50, 5)
@@ -34,12 +34,12 @@ loop {
     ) {
         set_pause(true);
         if get_turn() >= TURN {
-            click("X", 1.2);
+            click(X, 1.2);
             print("达到最大轮数");
             break;
         } else {
-            click("Y", 1.2);
-            click("A", 0.1, 1.0);
+            click(Y, 1.2);
+            click(A, 0.1, 1.0);
             print(`完成第 ${get_turn()} 轮`);
         }
         set_turn(get_turn() + 1);

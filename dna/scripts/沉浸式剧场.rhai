@@ -31,12 +31,12 @@ fn boss() {
 let img = shot();
 let p = get_pixel(img, 1139, 641);
 if (p[0] == 255 && p[1] == 255) {
-    click("X");
+    click(X);
 } else {
-    click("Y");
+    click(Y);
 }
 print("new stage");
-click("A", 0.1, 4.0);
+click(A, 0.1, 4.0);
 while !task_started() { wait(0.2); }
 
 rstick(20000, 0);
@@ -45,7 +45,7 @@ rstick(0, 0, 2.7);
 lstick();
 print("push device");
 for i in 0..5 {
-    click("Y");
+    click(Y);
     lstick(0, 10000, 0.1);
     lstick();
 }
@@ -80,7 +80,7 @@ print("boss stage");
 pad_reset();
 loop {
     if boss() {
-        click("RS");
+        click(RS);
         if vitamin < 1 {
             run_combo("e1");
             vitamin = 2;

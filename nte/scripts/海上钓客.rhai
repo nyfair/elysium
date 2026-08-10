@@ -47,16 +47,16 @@ loop {
     while !is_timeout(start, timeout) {
         let img = shot();
         if pixel_like(img, 763, 295, 255, 255, 255, 10) {
-            click("B");
+            click(B);
             continue;
         }
         if pixel_like(img, 657, 213, 200, 200, 200, 10) {
-            click("B");
+            click(B);
             continue;
         }
         if pixel_equal(img, 1019, 625, 213, 213, 213) {
             print("fish prepare");
-            click("Y", 0.1, 0.5);
+            click(Y, 0.1, 0.5);
             continue;
         }
         if !pixel_like(img, 1192, 653, 255, 255, 255, 4) {
@@ -66,14 +66,14 @@ loop {
         let p = get_pixel(img, 1159, 648);
         if p[2] < 252 {
             print("fish cast");
-            click("A", 0.5);
-            click("A");
+            click(A, 0.5);
+            click(A);
             casted = true;
             break;
         }
     }
     if !casted {
-        click("B", 0.1, 1.0);
+        click(B, 0.1, 1.0);
         continue;
     }
 
@@ -82,7 +82,7 @@ loop {
         let p = get_pixel(img, 1159, 648);
         if p[2] > 252 {
             print("fish bite");
-            click("A", 0.1, 0.5);
+            click(A, 0.1, 0.5);
             break;
         } else {
             print("wait for bite");
@@ -90,7 +90,7 @@ loop {
         }
     }
     if is_timeout(start, timeout) {
-        click("B", 0.1, 1.0);
+        click(B, 0.1, 1.0);
         continue;
     }
 
@@ -103,29 +103,29 @@ loop {
         let c = r[1];
         if y < 0 {
             print("stop ease");
-            release("LT", 0.0);
-            release("RT", 0.5);
+            release(LT, 0.0);
+            release(RT, 0.5);
             break;
         }
         if (y - c).abs() < 11 {
             continue;
         }
-        if y > c && key != "LT" {
+        if y > c && key != "lt" {
             print("left");
-            release("RT", 0.0);
-            press("LT", 0.0);
-            key = "LT";
+            release(RT, 0.0);
+            press(LT, 0.0);
+            key = "lt";
         }
-        if y < c && key != "RT" {
+        if y < c && key != "rt" {
             print("right");
-            release("LT", 0.0);
-            press("RT", 0.0);
-            key = "RT";
+            release(LT, 0.0);
+            press(RT, 0.0);
+            key = "rt";
         }
         wait(0.05);
     }
     if is_timeout(start, timeout) {
-        click("B", 0.1, 1.0);
+        click(B, 0.1, 1.0);
         continue;
     }
 
@@ -135,13 +135,13 @@ loop {
         if pixel_like(img, 647, 317, 255, 255, 255, 10) {
             print("finish fish");
             wait(2.5);
-            click("B");
+            click(B);
             break;
         } else {
             wait(0.1);
         }
     }
     if is_timeout(start, timeout) {
-        click("B");
+        click(B);
     }
 }

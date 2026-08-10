@@ -21,6 +21,51 @@ pub const Y: XButtons = XButtons!(Y);
 pub const LT: XButtons = XButtons { raw: 0x0888 };
 pub const RT: XButtons = XButtons { raw: 0x1888 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Button {
+    Up,
+    Down,
+    Left,
+    Right,
+    Start,
+    Back,
+    LS,
+    RS,
+    LB,
+    RB,
+    Guide,
+    A,
+    B,
+    X,
+    Y,
+    LT,
+    RT,
+}
+
+impl Button {
+    pub fn to_xbuttons(&self) -> XButtons {
+        match self {
+            Button::Up => UP,
+            Button::Down => DOWN,
+            Button::Left => LEFT,
+            Button::Right => RIGHT,
+            Button::Start => START,
+            Button::Back => BACK,
+            Button::LS => LS,
+            Button::RS => RS,
+            Button::LB => LB,
+            Button::RB => RB,
+            Button::Guide => GUIDE,
+            Button::A => A,
+            Button::B => B,
+            Button::X => X,
+            Button::Y => Y,
+            Button::LT => LT,
+            Button::RT => RT,
+        }
+    }
+}
+
 pub struct Gamepad {
     target: Xbox360Wired<Client>,
     state: XGamepad,

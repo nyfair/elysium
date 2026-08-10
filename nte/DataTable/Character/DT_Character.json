@@ -1,0 +1,258 @@
+[
+  {
+    "Rows": {
+      "1003": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_003"
+        },
+        "ItemName": {
+          "SourceString": "早雾"
+        },
+        "ElementData": {
+          "CharacterElementType": "咒"
+        },
+        "PlayerViewTagArray": ["增益", "控制", "输出增益"]
+      },
+      "1004": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_004"
+        },
+        "ItemName": {
+          "SourceString": "安魂曲"
+        },
+        "ElementData": {
+          "CharacterElementType": "暗"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出", "持续伤害"]
+      },
+      "1008": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_008"
+        },
+        "ItemName": {
+          "SourceString": "翳"
+        },
+        "ElementData": {
+          "CharacterElementType": "相"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出"]
+      },
+      "1010": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_010"
+        },
+        "ItemName": {
+          "SourceString": "娜娜莉"
+        },
+        "ElementData": {
+          "CharacterElementType": "灵"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出", "追加攻击"]
+      },
+      "1019": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_019"
+        },
+        "ItemName": {
+          "SourceString": "薄荷"
+        },
+        "ElementData": {
+          "CharacterElementType": "灵"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出"]
+      },
+      "1020": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_020"
+        },
+        "ItemName": {
+          "SourceString": "哈尼娅"
+        },
+        "ElementData": {
+          "CharacterElementType": "魂"
+        },
+        "PlayerViewTagArray": ["增益", "输出增益"]
+      },
+      "1021": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_021"
+        },
+        "ItemName": {
+          "SourceString": "埃德嘉"
+        },
+        "ElementData": {
+          "CharacterElementType": "光"
+        },
+        "PlayerViewTagArray": ["生存", "治疗"]
+      },
+      "1023": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_028"
+        },
+        "ItemName": {
+          "SourceString": "白藏"
+        },
+        "ElementData": {
+          "CharacterElementType": "咒"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出", "持续伤害"]
+      },
+      "1025": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_012"
+        },
+        "ItemName": {
+          "SourceString": "哈索尔"
+        },
+        "ElementData": {
+          "CharacterElementType": "相"
+        },
+        "PlayerViewTagArray": ["输出", "爆发输出"]
+      },
+      "1033": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_015"
+        },
+        "ItemName": {
+          "SourceString": "阿德勒"
+        },
+        "ElementData": {
+          "CharacterElementType": "咒"
+        },
+        "PlayerViewTagArray": ["生存", "护盾", "持续伤害"]
+      },
+      "1039": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_027"
+        },
+        "ItemName": {
+          "SourceString": "法帝娅"
+        },
+        "ElementData": {
+          "CharacterElementType": "魂"
+        },
+        "PlayerViewTagArray": ["生存", "伤害分摊"]
+      },
+      "1051": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_009"
+        },
+        "ItemName": {
+          "SourceString": "零"
+        },
+        "ElementData": {
+          "CharacterElementType": "光"
+        },
+        "PlayerViewTagArray": ["输出", "即瞬环合", "爆发输出"]
+      },
+      "1052": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_013"
+        },
+        "ItemName": {
+          "SourceString": "浔"
+        },
+        "ElementData": {
+          "CharacterElementType": "光"
+        },
+        "PlayerViewTagArray": ["增益", "爆发输出", "输出增益"]
+      },
+      "1054": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_005"
+        },
+        "ItemName": {
+          "SourceString": "达芙蒂尔"
+        },
+        "ElementData": {
+          "CharacterElementType": "暗"
+        },
+        "PlayerViewTagArray": ["输出", "爆发输出", "倾陷增益"]
+      },
+      "1055": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_104"
+        },
+        "ItemName": {
+          "SourceString": "九原"
+        },
+        "ElementData": {
+          "CharacterElementType": "灵"
+        },
+        "PlayerViewTagArray": ["输出", "爆发输出", "控制"]
+      },
+      "1056": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_004"
+        },
+        "ItemName": {
+          "SourceString": "安魂曲"
+        },
+        "ElementData": {
+          "CharacterElementType": "暗"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出", "持续伤害"]
+      },
+      "1070": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_haiyue"
+        },
+        "ItemName": {
+          "SourceString": "海月"
+        },
+        "ElementData": {
+          "CharacterElementType": "魂"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出"]
+      },
+      "1071": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_kaesi"
+        },
+        "ItemName": {
+          "SourceString": "卡厄斯"
+        },
+        "ElementData": {
+          "CharacterElementType": "相"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出"]
+      },
+      "1073": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_073"
+        },
+        "ItemName": {
+          "SourceString": "小吱"
+        },
+        "ElementData": {
+          "CharacterElementType": "光"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出"]
+      },
+      "1075": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_yiluoyi"
+        },
+        "ItemName": {
+          "SourceString": "伊洛伊"
+        },
+        "ElementData": {
+          "CharacterElementType": "灵"
+        },
+        "PlayerViewTagArray": ["生存", "治疗", "输出增益"]
+      },
+      "1076": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_zhenhong"
+        },
+        "ItemName": {
+          "SourceString": "真红"
+        },
+        "ElementData": {
+          "CharacterElementType": "光"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出"]
+      }
+    }
+  }
+]

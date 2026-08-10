@@ -12,14 +12,14 @@ fn task_ended() {
 }
 
 print("new task");
-click("Y", 0.1, 5.0);
-press("LB");
-click("Y", 2.0);
-click("X", 0.1, 1.0);
-click("X", 1.3);
-click("X", 1.0);
-release("LB", 4.3);
-click("X", 1.0, 1.0);
-click("X", 1.0, 1.0);
-click("X", 1.0, 1.0);
-click("X", 1.0);
+click(Y, 0.1, 5.0);
+press(LB);
+click(Y, 2.0);
+click(X, 0.1, 1.0);
+click(X, 1.3);
+click(X, 1.0);
+release(LB, 4.3);
+click(X, 1.0, 1.0);
+click(X, 1.0, 1.0);
+click(X, 1.0, 1.0);
+click(X, 1.0);

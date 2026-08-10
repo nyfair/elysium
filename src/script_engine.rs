@@ -1,4 +1,4 @@
-use rhai::{Array, Dynamic, Engine};
+use rhai::{Array, Dynamic, Engine, Module};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -6,10 +6,10 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::vision::{Vision, AssetMap, get_pixel, pixel_equal, pixel_like, ncc_match};
-use crate::input::*;
+use crate::input::{Button, Gamepad};
 use crate::k;
 
-type Frame = Arc<Mutex<image::ImageBuffer<image::Rgb<u8>, Vec<u8>>>>;
+pub type Frame = Arc<Mutex<image::ImageBuffer<image::Rgb<u8>, Vec<u8>>>>;
 
 pub static STOP: AtomicBool = AtomicBool::new(false);
 
@@ -46,6 +46,30 @@ pub fn new_engine(
     state: &TaskState,
 ) -> Engine {
     let mut engine = Engine::new();
+    engine.register_type_with_name::<Button>("Button");
+    let mut module = Module::new();
+    for (name, btn) in [
+        ("UP", Button::Up),
+        ("DOWN", Button::Down),
+        ("LEFT", Button::Left),
+        ("RIGHT", Button::Right),
+        ("START", Button::Start),
+        ("BACK", Button::Back),
+        ("LS", Button::LS),
+        ("RS", Button::RS),
+        ("LB", Button::LB),
+        ("RB", Button::RB),
+        ("GUIDE", Button::Guide),
+        ("A", Button::A),
+        ("B", Button::B),
+        ("X", Button::X),
+        ("Y", Button::Y),
+        ("LT", Button::LT),
+        ("RT", Button::RT),
+    ] {
+        module.set_var(name, Dynamic::from(btn));
+    }
+    engine.register_global_module(module.into());
     engine.on_progress(move |_ops| {
         if STOP.load(Ordering::SeqCst) {
             Some(Dynamic::from(StopReason::Exit))
@@ -72,6 +96,15 @@ pub fn new_engine(
     engine.register_fn("shot", move || -> Frame {
         Arc::new(Mutex::new(v.shot().unwrap()))
     });
+    engine.register_fn(
+        "load_img",
+        |path: &str| -> Result<Frame, Box<rhai::EvalAltResult>> {
+            match image::open(path) {
+                Ok(img) => Ok(Arc::new(Mutex::new(img.to_rgb8()))),
+                Err(e) => Err(format!("load_img 失败：{e}").into()),
+            }
+        },
+    );
     let v = vision.clone();
     engine.register_fn("shot", move |path: &str| -> Frame {
         let img = v.shot().unwrap();
@@ -109,25 +142,25 @@ pub fn new_engine(
     });
 
     let p = pad.clone();
-    engine.register_fn("press", move |btn: &str| k!(p).press(parse_button(btn), 0.1));
+    engine.register_fn("press", move |btn: Button| k!(p).press(btn.to_xbuttons(), 0.1));
     let p = pad.clone();
-    engine.register_fn("press", move |btn: &str, hold: f64| k!(p).press(parse_button(btn), hold));
+    engine.register_fn("press", move |btn: Button, hold: f64| k!(p).press(btn.to_xbuttons(), hold));
     let p = pad.clone();
-    engine.register_fn("press_raw", move |btn: &str| k!(p).press_raw(parse_button(btn)));
+    engine.register_fn("press_raw", move |btn: Button| k!(p).press_raw(btn.to_xbuttons()));
     let p = pad.clone();
-    engine.register_fn("release", move |btn: &str| k!(p).release(parse_button(btn), 0.1));
+    engine.register_fn("release", move |btn: Button| k!(p).release(btn.to_xbuttons(), 0.1));
     let p = pad.clone();
-    engine.register_fn("release", move |btn: &str, post: f64| k!(p).release(parse_button(btn), post));
+    engine.register_fn("release", move |btn: Button, post: f64| k!(p).release(btn.to_xbuttons(), post));
     let p = pad.clone();
-    engine.register_fn("release_raw", move |btn: &str| k!(p).release_raw(parse_button(btn)));
+    engine.register_fn("release_raw", move |btn: Button| k!(p).release_raw(btn.to_xbuttons()));
     let p = pad.clone();
     engine.register_fn("pad_update", move || k!(p).update());
     let p = pad.clone();
-    engine.register_fn("click", move |btn: &str| k!(p).click(parse_button(btn), 0.1, 0.1));
+    engine.register_fn("click", move |btn: Button| k!(p).click(btn.to_xbuttons(), 0.1, 0.1));
     let p = pad.clone();
-    engine.register_fn("click", move |btn: &str, hold: f64| k!(p).click(parse_button(btn), hold, 0.1));
+    engine.register_fn("click", move |btn: Button, hold: f64| k!(p).click(btn.to_xbuttons(), hold, 0.1));
     let p = pad.clone();
-    engine.register_fn("click", move |btn: &str, hold: f64, post: f64| k!(p).click(parse_button(btn), hold, post));
+    engine.register_fn("click", move |btn: Button, hold: f64, post: f64| k!(p).click(btn.to_xbuttons(), hold, post));
     let p = pad.clone();
     engine.register_fn("pad_reset", move || k!(p).reset());
     let p = pad.clone();
@@ -145,27 +178,4 @@ pub fn new_engine(
 
     engine.on_print(|s: &str| println!("{s}"));
     engine
-}
-
-fn parse_button(name: &str) -> vigem_client::XButtons {
-    match name {
-        "A" => A,
-        "B" => B,
-        "X" => X,
-        "Y" => Y,
-        "LB" => LB,
-        "RB" => RB,
-        "LS" => LS,
-        "RS" => RS,
-        "UP" => UP,
-        "DOWN" => DOWN,
-        "LEFT" => LEFT,
-        "RIGHT" => RIGHT,
-        "START" => START,
-        "BACK" => BACK,
-        "GUIDE" => GUIDE,
-        "LT" => LT,
-        "RT" => RT,
-        _ => GUIDE,
-    }
 }

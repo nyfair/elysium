@@ -18,7 +18,7 @@ loop {
         && !pixel_equal(img, 550, 631, 0, 0, 0)
     ) {
         set_pause(true);
-        click("Y");
+        click(Y);
     }
     if (pixel_like(img, 381, 509, 30, 58, 50, 5)
         && pixel_like(img, 477, 509, 30, 58, 50, 5)
@@ -26,12 +26,12 @@ loop {
     ) {
         set_pause(true);
         if get_turn() >= TURN {
-            click("X", 1.2);
+            click(X, 1.2);
             print("达到最大轮数");
             break;
         } else {
-            click("Y", 1.2);
-            click("A", 0.1, 1.0);
+            click(Y, 1.2);
+            click(A, 0.1, 1.0);
             print(`完成第 ${get_turn()} 轮`);
         }
         set_turn(get_turn() + 1);

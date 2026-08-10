@@ -17,22 +17,22 @@
     "categories": [
         {
             "id": 6,
-            "name": "fish_bite",
+            "name": "bite",
             "supercategory": ""
         },
         {
             "id": 7,
-            "name": "fish_cast",
+            "name": "cast",
             "supercategory": ""
         },
         {
             "id": 8,
-            "name": "fish_chance",
+            "name": "chance",
             "supercategory": ""
         },
         {
             "id": 9,
-            "name": "fish_ease",
+            "name": "ease",
             "supercategory": ""
         },
         {

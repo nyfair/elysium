@@ -212,7 +212,9 @@ fn init_resources(
             crate::dna::setup_engine(&mut engine, &vision, &pad, state);
         }
         GameType::Nte => {
-            crate::nte::setup_engine(&mut engine, state);
+            let chars = crate::nte::load_characters()?;
+            let matcher = Arc::new(crate::nte::AvatarMatcher::load(&chars)?);
+            crate::nte::setup_engine(&mut engine, &matcher, state);
         }
     }
     let engine = Arc::new(engine);
