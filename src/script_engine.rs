@@ -1,4 +1,4 @@
-use rhai::{Array, Dynamic, Engine, Module};
+use rhai::{Array, Dynamic, Engine, Map, Module};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -8,6 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::vision::{Vision, AssetMap, get_pixel, pixel_equal, pixel_like, ncc_match};
 use crate::input::{Button, Gamepad};
 use crate::k;
+use crate::ocr::Ocr;
 
 pub type Frame = Arc<Mutex<image::ImageBuffer<image::Rgb<u8>, Vec<u8>>>>;
 
@@ -44,6 +45,7 @@ pub fn new_engine(
     pad: &Arc<Mutex<Gamepad>>,
     assets: &Arc<AssetMap>,
     state: &TaskState,
+    ocr: &Arc<Ocr>,
 ) -> Engine {
     let mut engine = Engine::new();
     engine.register_type_with_name::<Button>("Button");
@@ -176,6 +178,77 @@ pub fn new_engine(
     let p = pad.clone();
     engine.register_fn("rstick", move |x: i64, y: i64, dur: f64| k!(p).rstick(x as i16, y as i16, dur));
 
+    let o = ocr.clone();
+    engine.register_fn("ocr_info", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Array {
+        ocr_roi(&o, &k!(img), x, y, w, h, 2.)
+    });
+    let o = ocr.clone();
+    engine.register_fn(
+        "ocr_info",
+        move |img: Frame, x: i64, y: i64, w: i64, h: i64, scale: f64| -> Array {
+            ocr_roi(&o, &k!(img), x, y, w, h, scale as f32)
+        },
+    );
+    let o = ocr.clone();
+    engine.register_fn("ocr", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Dynamic {
+        ocr_text_roi(&o, &k!(img), x, y, w, h, 2.).into()
+    });
+    let o = ocr.clone();
+    engine.register_fn(
+        "ocr",
+        move |img: Frame, x: i64, y: i64, w: i64, h: i64, scale: f64| -> Dynamic {
+            ocr_text_roi(&o, &k!(img), x, y, w, h, scale as f32).into()
+        },
+    );
+
     engine.on_print(|s: &str| println!("{s}"));
     engine
+}
+
+fn ocr_roi(
+    ocr: &Ocr,
+    img: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
+    x: i64,
+    y: i64,
+    w: i64,
+    h: i64,
+    scale: f32,
+) -> Array {
+    match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32), scale) {
+        Ok(lines) => lines
+            .into_iter()
+            .map(|l| {
+                let mut m = Map::new();
+                m.insert("text".into(), l.text.into());
+                m.insert("score".into(), (l.score as f64).into());
+                m.insert("x".into(), (l.x as f64).into());
+                m.insert("y".into(), (l.y as f64).into());
+                m.insert("w".into(), (l.w as f64).into());
+                m.insert("h".into(), (l.h as f64).into());
+                Dynamic::from(m)
+            })
+            .collect(),
+        Err(e) => {
+            eprintln!("ocr 出错：{e}");
+            Vec::new()
+        }
+    }
+}
+
+fn ocr_text_roi(
+    ocr: &Ocr,
+    img: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
+    x: i64,
+    y: i64,
+    w: i64,
+    h: i64,
+    scale: f32,
+) -> String {
+    match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32), scale) {
+        Ok(lines) => lines.into_iter().map(|l| l.text).collect::<Vec<_>>().join("\n"),
+        Err(e) => {
+            eprintln!("ocr_text 出错：{e}");
+            String::new()
+        }
+    }
 }

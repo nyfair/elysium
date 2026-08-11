@@ -5,6 +5,7 @@ mod worker;
 mod tui;
 mod dna;
 mod nte;
+mod ocr;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, ValueEnum};
@@ -160,7 +161,8 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
         pause: Arc::new(Mutex::new(false)),
         cur_turn: Arc::new(Mutex::new(1)),
     });
-    let mut engine = script_engine::new_engine(&vision, &pad, &assets, &state);
+    let ocr = ocr::Ocr::global().context("无法初始化 OCR 引擎")?;
+    let mut engine = script_engine::new_engine(&vision, &pad, &assets, &state, &ocr);
     let log: Arc<dyn Fn(&str) + Send + Sync> = Arc::new(|msg| println!("{msg}"));
     let l = log.clone();
     engine.on_print(move |msg: &str| l(msg));

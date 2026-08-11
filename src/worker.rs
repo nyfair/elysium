@@ -200,7 +200,8 @@ fn init_resources(
         }
     };
 
-    let mut engine = script_engine::new_engine(&vision, &pad, &assets, state);
+    let ocr = crate::ocr::Ocr::global().context("无法初始化 OCR 引擎")?;
+    let mut engine = script_engine::new_engine(&vision, &pad, &assets, state, &ocr);
     let sh = shared.clone();
     let log: Arc<dyn Fn(&str) + Send + Sync> =
         Arc::new(move |msg| SharedState::push_log(&sh, msg.to_string()));
