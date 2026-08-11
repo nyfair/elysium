@@ -215,7 +215,8 @@ fn init_resources(
         GameType::Nte => {
             let chars = crate::nte::load_characters()?;
             let matcher = Arc::new(crate::nte::AvatarMatcher::load(&chars)?);
-            crate::nte::setup_engine(&mut engine, &matcher, state);
+            let tp = Arc::new(crate::nte::load_tp()?);
+            crate::nte::setup_engine(&mut engine, &matcher, &vision, &pad, &ocr, &tp, state);
         }
     }
     let engine = Arc::new(engine);

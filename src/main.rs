@@ -177,7 +177,8 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
         GameType::Nte => {
             let chars = nte::load_characters()?;
             let matcher = Arc::new(nte::AvatarMatcher::load(&chars)?);
-            nte::setup_engine(&mut engine, &matcher, &state);
+            let tp = Arc::new(nte::load_tp()?);
+            nte::setup_engine(&mut engine, &matcher, &vision, &pad, &ocr, &tp, &state);
         }
     }
     let exit = Arc::new(AtomicBool::new(false));

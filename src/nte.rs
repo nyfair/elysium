@@ -4,12 +4,14 @@ use rhai::{Array, Dynamic, Engine, AST};
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use crate::input::{Gamepad, A, B, BACK, DOWN, LEFT, RB, RIGHT};
 use crate::k;
+use crate::ocr::Ocr;
 use crate::script_engine::{sleep, Frame, TaskState, STOP};
-use crate::vision::{MatchReport, TemplateSet};
+use crate::vision::{MatchReport, TemplateSet, Vision};
 use crate::worker;
 use crate::Args;
 
@@ -17,6 +19,7 @@ pub const WINDOW_TITLE: &str = "异环  ";
 
 const CHARACTER_JSON: &str = "nte/DataTable/Character/DT_Character.json";
 const AVATAR_DIR: &str = "nte/UI_Icon/AvatarImage/CustomAvatar/256";
+const TP_JSON: &str = "nte/tp.json";
 
 pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
     (1162, 133, 64, 64),
@@ -197,7 +200,121 @@ fn report_debug(rep: &MatchReport) -> String {
     s
 }
 
-pub fn setup_engine(engine: &mut Engine, matcher: &Arc<AvatarMatcher>, _state: &TaskState) {
+pub struct TpPoint {
+    pub area: String,
+    pub r#type: i64,
+    pub index: i64,
+}
+
+pub struct TpData {
+    pub areas: Vec<String>,
+    pub points: HashMap<String, TpPoint>,
+}
+
+pub fn load_tp() -> Result<TpData> {
+    let text = std::fs::read_to_string(TP_JSON)
+        .with_context(|| format!("读取 {TP_JSON} 失败"))?;
+    let json: serde_json::Value = serde_json::from_str(&text)
+        .with_context(|| format!("解析 {TP_JSON} 失败"))?;
+    let areas = json["areas"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+    let mut points = HashMap::new();
+    if let Some(tp) = json["tp"].as_object() {
+        for (name, v) in tp {
+            points.insert(
+                name.clone(),
+                TpPoint {
+                    area: v["area"].as_str().unwrap_or("").to_string(),
+                    r#type: v["type"].as_i64().unwrap_or(0),
+                    index: v["index"].as_i64().unwrap_or(0),
+                },
+            );
+        }
+    }
+    Ok(TpData { areas, points })
+}
+
+const AREA_ROI: (u32, u32, u32, u32) = (974, 132, 200, 30);
+
+fn travel_impl(
+    vision: &Vision,
+    ocr: &Ocr,
+    pad: &Mutex<Gamepad>,
+    tp: &TpData,
+    target_area: &str,
+    type_idx: i64,
+    index: i64,
+) -> bool {
+    let n = tp.areas.len();
+    if n == 0 {
+        eprintln!("travel: areas 为空");
+        return false;
+    }
+    let Some(tgt_idx) = tp.areas.iter().position(|a| a == target_area) else {
+        eprintln!("travel: 未知区域：{target_area}");
+        return false;
+    };
+    k!(pad).click(BACK, 0.1, 1.7);
+    k!(pad).click(RB, 0.1, 0.3);
+    let img = match vision.shot() {
+        Ok(i) => i,
+        Err(e) => {
+            eprintln!("travel: 截图失败：{e}");
+            return false;
+        }
+    };
+    let lines = match ocr.recognize_roi(&img, AREA_ROI, 2.) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("travel: 区域识别失败：{e}");
+            return false;
+        }
+    };
+    let text: String = lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>().concat();
+    let Some(cur_idx) = tp.areas.iter().position(|a| text.contains(a.as_str())) else {
+        eprintln!("travel: 无法匹配当前区域：{text:?}");
+        return false;
+    };
+    let mut d = (tgt_idx as i64 - cur_idx as i64).rem_euclid(n as i64);
+    if d > n as i64 / 2 {
+        d -= n as i64;
+    }
+    if d > 0 {
+        for _ in 0..d {
+            k!(pad).click(RIGHT, 0.1, 0.3);
+        }
+    } else if d < 0 {
+        for _ in 0..-d {
+            k!(pad).click(LEFT, 0.1, 0.3);
+        }
+    }
+    for _ in 0..type_idx {
+        k!(pad).click(DOWN, 0.1, 0.2);
+    }
+    k!(pad).click(A, 0.1, 0.2);
+    for _ in 0..=index {
+        k!(pad).click(DOWN, 0.1, 0.2);
+    }
+    k!(pad).click(A, 0.3, 1.7);
+    k!(pad).click(B, 0.1, 0.3);
+    k!(pad).click(A, 0.3, 0.2);
+    k!(pad).click(A, 0.3, 0.2);
+    k!(pad).click(A, 0.3, 0.2);
+    k!(pad).click(A, 0.5, 0.);
+    true
+}
+
+pub fn setup_engine(
+    engine: &mut Engine,
+    matcher: &Arc<AvatarMatcher>,
+    vision: &Arc<Vision>,
+    pad: &Arc<Mutex<Gamepad>>,
+    ocr: &Arc<Ocr>,
+    tp: &Arc<TpData>,
+    _state: &TaskState,
+) {
     engine.register_fn("name", |c: &mut Character| c.name.clone());
     engine.register_fn("tag", |c: &mut Character| -> Array {
         c.tag.iter().map(|t| t.into()).collect()
@@ -226,6 +343,28 @@ pub fn setup_engine(engine: &mut Engine, matcher: &Arc<AvatarMatcher>, _state: &
             })
             .collect()
     });
+
+    let v = vision.clone();
+    let p = pad.clone();
+    let o = ocr.clone();
+    let t = tp.clone();
+    engine.register_fn("travel", move |target: &str| -> bool {
+        let Some(pt) = t.points.get(target) else {
+            eprintln!("travel: 未知地点：{target}");
+            return false;
+        };
+        travel_impl(&v, &o, &p, &t, &pt.area, pt.r#type, pt.index)
+    });
+    let v = vision.clone();
+    let p = pad.clone();
+    let o = ocr.clone();
+    let t = tp.clone();
+    engine.register_fn(
+        "travel",
+        move |area: &str, type_idx: i64, index: i64| -> bool {
+            travel_impl(&v, &o, &p, &t, area, type_idx, index)
+        },
+    );
 }
 
 pub fn run(
