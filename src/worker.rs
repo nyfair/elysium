@@ -380,16 +380,14 @@ pub fn spawn_script(
             scope.push_constant("TURN", args.turn as i64);
             scope.push_constant("TIMEOUT", args.timeout);
             match engine.run_ast_with_scope(&mut scope, &ast) {
-                Ok(()) => log("脚本执行完毕"),
+                Ok(()) => {},
                 Err(e) => {
                     let stopped = matches!(
                         e.as_ref(),
                         rhai::EvalAltResult::ErrorTerminated(t, _)
                             if t.clone().try_cast::<StopReason>() == Some(StopReason::Exit)
                     );
-                    if stopped {
-                        log("脚本被停止");
-                    } else {
+                    if !stopped {
                         log(&format!("脚本出错：{e}"));
                         let _ = std::fs::write("error.log", format!("{e}\n"));
                     }

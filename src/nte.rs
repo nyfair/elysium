@@ -20,9 +20,9 @@ const AVATAR_DIR: &str = "nte/UI_Icon/AvatarImage/CustomAvatar/256";
 
 pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
     (1162, 133, 64, 64),
-    (1162, 220, 64, 64),
-    (1162, 307, 64, 64),
-    (1162, 394, 64, 64),
+    (1162, 221, 64, 64),
+    (1162, 309, 64, 64),
+    (1162, 397, 64, 64),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,15 +120,14 @@ pub fn load_characters() -> Result<Vec<Character>> {
             .unwrap_or_default();
         out.push(Character { name, asset_name: asset, tag, element, debug_info: None });
     }
-    out.sort_by(|a, b| a.asset_name.cmp(&b.asset_name));
     Ok(out)
 }
 
 const FEATURE_SIZE: u32 = 64;
 const MASK_RADIUS_RATIO: f32 = 0.42;
 const SCORE_MIN: f32 = 0.55;
-const SCORE_GAP: f32 = 0.05;
-const VARIANCE_MIN: f32 = 0.0015;
+const SCORE_GAP: f32 = 0.01;
+const VARIANCE_MIN: f32 = 0.025;
 
 pub struct AvatarMatcher {
     templates: TemplateSet,
@@ -191,10 +190,7 @@ impl AvatarMatcher {
 }
 
 fn report_debug(rep: &MatchReport) -> String {
-    let mut s = format!("var={:.4}", rep.var);
-    if let Some((name, score)) = &rep.verdict {
-        s.push_str(&format!(" score={name}({score:.3})"));
-    }
+    let mut s = format!("var: {:.4}  score:", rep.var);
     for (i, t) in rep.top.iter().enumerate() {
         s.push_str(&format!(" {}.{}({} {:.3})", i + 1, t.name, t.file, t.score));
     }
@@ -203,7 +199,9 @@ fn report_debug(rep: &MatchReport) -> String {
 
 pub fn setup_engine(engine: &mut Engine, matcher: &Arc<AvatarMatcher>, _state: &TaskState) {
     engine.register_fn("name", |c: &mut Character| c.name.clone());
-    engine.register_fn("tag", |c: &mut Character| c.tag.join("、"));
+    engine.register_fn("tag", |c: &mut Character| -> Array {
+        c.tag.iter().map(|t| t.into()).collect()
+    });
     engine.register_fn("element", |c: &mut Character| c.element.as_str().to_string());
     engine.register_fn("debug_info", |c: &mut Character| {
         c.debug_info.clone().unwrap_or_default()

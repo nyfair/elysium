@@ -473,8 +473,8 @@ impl TemplateSet {
             None
         } else {
             let (i, s) = scored[0];
-            let top2 = scored.get(1).map(|x| x.1).unwrap_or(0.);
-            if s < self.score_min || s - top2 < self.score_gap {
+            let (i2, s2) = scored[1];
+            if s < self.score_min || (s - s2 < self.score_gap && self.refs[i].name != self.refs[i2].name) {
                 None
             } else {
                 Some((self.refs[i].name.clone(), s))

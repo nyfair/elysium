@@ -110,17 +110,17 @@ loop {
         if (y - c).abs() < 11 {
             continue;
         }
-        if y > c && key != "lt" {
-            print("left");
+        if y > c && key != "l" {
+            print("<-");
             release(RT, 0.0);
             press(LT, 0.0);
-            key = "lt";
+            key = "l";
         }
-        if y < c && key != "rt" {
-            print("right");
+        if y < c && key != "r" {
+            print("->");
             release(LT, 0.0);
             press(RT, 0.0);
-            key = "rt";
+            key = "r";
         }
         wait(0.05);
     }
