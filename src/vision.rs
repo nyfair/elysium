@@ -27,6 +27,27 @@ pub type AssetMap = HashMap<String, GrayImage>;
 
 static FFT_PLANNER: Mutex<Option<FftPlanner<f64>>> = Mutex::new(None);
 
+const BASE_WIDTH: f64 = 1280.;
+const BASE_HEIGHT: f64 = 720.;
+
+pub fn scale_coords(img_w: u32, img_h: u32, x: u32, y: u32) -> (u32, u32) {
+    let scale_x = img_w as f64 / BASE_WIDTH;
+    let scale_y = img_h as f64 / BASE_HEIGHT;
+    let real_x = ((x as f64) * scale_x).round() as u32;
+    let real_y = ((y as f64) * scale_y).round() as u32;
+    (real_x.min(img_w.saturating_sub(1)), real_y.min(img_h.saturating_sub(1)))
+}
+
+pub fn scale_roi(img_w: u32, img_h: u32, roi: (u32, u32, u32, u32)) -> (u32, u32, u32, u32) {
+    let scale_x = img_w as f64 / BASE_WIDTH;
+    let scale_y = img_h as f64 / BASE_HEIGHT;
+    let rx = ((roi.0 as f64) * scale_x).round() as u32;
+    let ry = ((roi.1 as f64) * scale_y).round() as u32;
+    let rw = ((roi.2 as f64) * scale_x).round() as u32;
+    let rh = ((roi.3 as f64) * scale_y).round() as u32;
+    (rx, ry, rw, rh)
+}
+
 struct FrameBuf {
     rgb: Vec<u8>,
     width: u32,
@@ -162,6 +183,11 @@ impl Vision {
         img.save(path)?;
         Ok(())
     }
+
+    pub fn get_dimension(&self) -> (u32, u32) {
+        let buf = k!(self.buffer);
+        (buf.width, buf.height)
+    }
 }
 
 pub fn load_assets(game: &str, scale_height: u32) -> Result<AssetMap> {
@@ -213,7 +239,8 @@ pub fn load_assets(game: &str, scale_height: u32) -> Result<AssetMap> {
 }
 
 pub fn get_pixel(img: &ImageBuffer<Rgb<u8>, Vec<u8>>, x: u32, y: u32) -> [u8; 3] {
-    let px = img.get_pixel(x, y);
+    let (real_x, real_y) = scale_coords(img.width(), img.height(), x, y);
+    let px = img.get_pixel(real_x, real_y);
     [px[0], px[1], px[2]]
 }
 
@@ -236,7 +263,8 @@ pub fn ncc_match(
 ) -> (u32, u32, f64) {
     let bg_w = background.width();
     let bg_h = background.height();
-    let (rx, ry, rw, rh) = match roi {
+    let real_roi = roi.map(|r| scale_roi(bg_w, bg_h, r));
+    let (rx, ry, rw, rh) = match real_roi {
         Some((x, y, w, h)) => (x, y, w.min(bg_w.saturating_sub(x)), h.min(bg_h.saturating_sub(y))),
         None => (0, 0, bg_w, bg_h),
     };
@@ -306,10 +334,12 @@ pub fn ncc_match(
         }
     }
 
-    let cx = best.0 as u32 + tw / 2 + rx;
-    let cy = best.1 as u32 + th / 2 + ry;
+    let real_cx = best.0 as u32 + tw / 2 + rx;
+    let real_cy = best.1 as u32 + th / 2 + ry;
     let score = best_val / (tw * th) as f64;
-    (cx, cy, score)
+    let base_cx = ((real_cx as f64) / (bg_w as f64 / BASE_WIDTH)).round() as u32;
+    let base_cy = ((real_cy as f64) / (bg_h as f64 / BASE_HEIGHT)).round() as u32;
+    (base_cx, base_cy, score)
 }
 
 fn next_pow2(n: u32) -> u32 {
@@ -433,7 +463,7 @@ impl TemplateSet {
         frame: &ImageBuffer<Rgb<u8>, Vec<u8>>,
         roi: (u32, u32, u32, u32),
     ) -> Option<MatchReport> {
-        let (x, y, w, h) = roi;
+        let (x, y, w, h) = scale_roi(frame.width(), frame.height(), roi);
         if x + w > frame.width() || y + h > frame.height() {
             return None;
         }

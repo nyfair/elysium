@@ -7,13 +7,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use crate::input::{Gamepad, A, B, BACK, DOWN, LEFT, RB, RIGHT};
-use crate::k;
+use crate::input::*;
 use crate::ocr::Ocr;
 use crate::script_engine::{sleep, Frame, TaskState, STOP};
 use crate::vision::{MatchReport, TemplateSet, Vision};
 use crate::worker;
-use crate::Args;
+use crate::{Args, k};
 
 pub const WINDOW_TITLE: &str = "异环  ";
 
@@ -238,7 +237,7 @@ pub fn load_tp() -> Result<TpData> {
 
 const AREA_ROI: (u32, u32, u32, u32) = (974, 132, 200, 30);
 
-fn travel_impl(
+fn travel(
     vision: &Vision,
     ocr: &Ocr,
     pad: &Mutex<Gamepad>,
@@ -265,14 +264,14 @@ fn travel_impl(
             return false;
         }
     };
-    let lines = match ocr.recognize_roi(&img, AREA_ROI, 2.) {
+    let lines = match ocr.recognize_roi(&img, AREA_ROI) {
         Ok(l) => l,
         Err(e) => {
             eprintln!("travel: 区域识别失败：{e}");
             return false;
         }
     };
-    let text: String = lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>().concat();
+    let text = lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>().concat();
     let Some(cur_idx) = tp.areas.iter().position(|a| text.contains(a.as_str())) else {
         eprintln!("travel: 无法匹配当前区域：{text:?}");
         return false;
@@ -353,7 +352,7 @@ pub fn setup_engine(
             eprintln!("travel: 未知地点：{target}");
             return false;
         };
-        travel_impl(&v, &o, &p, &t, &pt.area, pt.r#type, pt.index)
+        travel(&v, &o, &p, &t, &pt.area, pt.r#type, pt.index)
     });
     let v = vision.clone();
     let p = pad.clone();
@@ -362,7 +361,7 @@ pub fn setup_engine(
     engine.register_fn(
         "travel",
         move |area: &str, type_idx: i64, index: i64| -> bool {
-            travel_impl(&v, &o, &p, &t, area, type_idx, index)
+            travel(&v, &o, &p, &t, area, type_idx, index)
         },
     );
 }

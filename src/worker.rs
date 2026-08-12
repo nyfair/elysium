@@ -185,7 +185,7 @@ fn init_resources(
         _ => {
             let pad = Arc::new(Mutex::new(Gamepad::new()
                 .context("无法连接虚拟手柄：请以管理员身份运行，或确认已安装 ViGEmBus 驱动")?));
-            let assets = Arc::new(vision::load_assets(game_name, 720)?);
+            let assets = Arc::new(vision::load_assets(game_name, vision.get_dimension().1)?);
             *k!(RES_CACHE) = Some((
                 game.clone(),
                 GameResources { pad: pad.clone(), assets: assets.clone() },
@@ -211,7 +211,7 @@ fn init_resources(
     match game {
         #[cfg(feature = "dna")]
         GameType::Dna => {
-            crate::dna::setup_engine(&mut engine, &vision, &pad, state);
+            crate::dna::setup_engine(&mut engine, &pad, state);
         }
         #[cfg(feature = "nte")]
         GameType::Nte => {

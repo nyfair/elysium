@@ -8,14 +8,18 @@ click(Y, 0.1, 0.2);
 for b in 0..BOOST { click(RIGHT); }
 click(A);
 click(A, 0.1, 4.0);
-while !task_started() { wait(0.2); }
+while !task_started(shot()) { wait(0.2); }
 wait(1.0);
 
-let img = shot();
-if pixel_like(img, 632, 303, 255, 255, 200, 10) {
+let m = ncc_match(shot(), "track_point", 600, 264, 60, 100);
+if m[2] < 0.8 {
+    print("无法识别该副本");
+    exit();
+}
+if m[0] < 635 {
     run_combo("w1j4");
     rstick(-14000, 0, 0.1);
-} else if pixel_like(img, 639, 315, 255, 255, 200, 10) {
+} else {
     run_combo("w1j2");
     rstick(14000, 0, 0.1);
 }
@@ -26,16 +30,13 @@ lstick();
 if STRATEGY.len() > 0 { run_combo(STRATEGY); }
 loop {
     let img = shot();
-    if (pixel_equal(img, 881, 655, 0, 0, 0)
-        && pixel_equal(img, 1123, 655, 0, 0, 0)
-        && !pixel_equal(img, 900, 681, 0, 0, 0)
-    ) {
+    if task_ended(img) {
         print("无尽任务完成");
         break;
     }
-    if (pixel_like(img, 381, 509, 30, 58, 50, 5)
-        && pixel_like(img, 477, 509, 30, 58, 50, 5)
-        && !pixel_like(img, 381, 535, 30, 58, 50, 5)
+    if (pixel_equal(img, 681, 256, 255, 255, 255)
+        && pixel_equal(img, 681, 288, 255, 255, 255)
+        && !pixel_equal(img, 670, 256, 255, 255, 255)
     ) {
         set_pause(true);
         if get_turn() >= TURN {

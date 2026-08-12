@@ -183,30 +183,13 @@ pub fn new_engine(
     #[cfg(feature = "ocr")]
     {
         let o = ocr.clone();
-        engine.register_fn("ocr", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Array {
-            ocr_roi(&o, &k!(img), x, y, w, h, 2.)
+        engine.register_fn("ocr_info", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Array {
+            ocr_info_roi(&o, &k!(img), x, y, w, h)
         });
         let o = ocr.clone();
-        engine.register_fn(
-            "ocr",
-            move |img: Frame, x: i64, y: i64, w: i64, h: i64, scale: f64| -> Array {
-                ocr_roi(&o, &k!(img), x, y, w, h, scale as f32)
-            },
-        );
-        let o = ocr.clone();
-        engine.register_fn(
-            "ocr_text",
-            move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Dynamic {
-                ocr_text_roi(&o, &k!(img), x, y, w, h, 2.).into()
-            },
-        );
-        let o = ocr.clone();
-        engine.register_fn(
-            "ocr_text",
-            move |img: Frame, x: i64, y: i64, w: i64, h: i64, scale: f64| -> Dynamic {
-                ocr_text_roi(&o, &k!(img), x, y, w, h, scale as f32).into()
-            },
-        );
+        engine.register_fn("ocr", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Dynamic {
+            ocr_roi(&o, &k!(img), x, y, w, h).into()
+        });
     }
 
     engine.on_print(|s: &str| println!("{s}"));
@@ -214,16 +197,15 @@ pub fn new_engine(
 }
 
 #[cfg(feature = "ocr")]
-fn ocr_roi(
+fn ocr_info_roi(
     ocr: &Ocr,
     img: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
     x: i64,
     y: i64,
     w: i64,
     h: i64,
-    scale: f32,
 ) -> Array {
-    match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32), scale) {
+    match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32)) {
         Ok(lines) => lines
             .into_iter()
             .map(|l| {
@@ -245,16 +227,15 @@ fn ocr_roi(
 }
 
 #[cfg(feature = "ocr")]
-fn ocr_text_roi(
+fn ocr_roi(
     ocr: &Ocr,
     img: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
     x: i64,
     y: i64,
     w: i64,
     h: i64,
-    scale: f32,
 ) -> String {
-    match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32), scale) {
+    match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32)) {
         Ok(lines) => lines.into_iter().map(|l| l.text).collect::<Vec<_>>().join("\n"),
         Err(e) => {
             eprintln!("ocr_text 出错：{e}");

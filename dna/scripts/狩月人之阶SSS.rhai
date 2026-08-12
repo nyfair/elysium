@@ -5,8 +5,7 @@
 //   "timeout": 90
 // }
 
-fn task_ended() {
-    let img = shot();
+fn task_ended(img) {
     let p = get_pixel(img, 1000, 32);
     !(p[0] > 15 || p[1] > 15 || p[2] > 15)
 }

@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::input::*;
-use crate::script_engine::{sleep, TaskState, StopReason, STOP};
+use crate::script_engine::{sleep, Frame, TaskState, StopReason, STOP};
 use crate::vision::{Vision, pixel_equal};
 use crate::worker;
 use crate::{Args, k};
@@ -15,17 +15,14 @@ pub const WINDOW_TITLE: &str = "二重螺旋  ";
 
 pub fn setup_engine(
     engine: &mut Engine,
-    vision: &Arc<Vision>,
     pad: &Arc<Mutex<Gamepad>>,
     state: &TaskState,
 ) {
     let p = pad.clone();
     let pa = state.pause.clone();
     engine.register_fn("run_combo", move |s: &str| run_combo(s, &p, &pa));
-    let v = vision.clone();
-    engine.register_fn("task_started", move || -> bool { task_started(&v).unwrap() });
-    let v = vision.clone();
-    engine.register_fn("task_ended", move || -> bool { task_ended(&v).unwrap() });
+    engine.register_fn("task_started", move |img: Frame| -> bool { task_started(img).unwrap() });
+    engine.register_fn("task_ended", move |img: Frame| -> bool { task_ended(img).unwrap() });
 }
 
 pub fn run(
@@ -122,6 +119,7 @@ fn detect_ended(
     vision: &Arc<Vision>,
     has_script_ended: bool,
 ) -> Result<bool> {
+    let img = Arc::new(Mutex::new(vision.shot()?));
     if has_script_ended {
         engine
             .call_fn_with_options(
@@ -129,11 +127,11 @@ fn detect_ended(
                 scope,
                 ast,
                 "task_ended",
-                (),
+                (img,)
             )
             .map_err(|e| anyhow::anyhow!("{e}"))
     } else {
-        task_ended(vision)
+        task_ended(img)
     }
 }
 
@@ -145,21 +143,27 @@ fn reset_game(pad: &Arc<Mutex<Gamepad>>) {
     k!(pad).click(A, 0.1, 0.3);
 }
 
-pub fn task_ended(vision: &Arc<Vision>) -> Result<bool> {
-    let img = vision.shot()?;
+pub fn task_ended(img: Frame) -> Result<bool> {
+    let img = &*k!(img);
     Ok(
-        pixel_equal(&img, 881, 655, 0, 0, 0) &&
-        pixel_equal(&img, 1123, 655, 0, 0, 0) &&
-        !pixel_equal(&img, 900, 681, 0, 0, 0)
+        (
+            pixel_equal(img, 879, 654, 0, 0, 0) ||
+            pixel_equal(img, 880, 654, 0, 0, 0) ||
+            pixel_equal(img, 881, 654, 0, 0, 0)
+        ) && (
+            pixel_equal(img, 1123, 654, 0, 0, 0) ||
+            pixel_equal(img, 1124, 654, 0, 0, 0) ||
+            pixel_equal(img, 1125, 654, 0, 0, 0)
+        ) && !pixel_equal(img, 900, 681, 0, 0, 0)
     )
 }
 
-pub fn task_started(vision: &Arc<Vision>) -> Result<bool> {
-    let img = vision.shot()?;
+pub fn task_started(img: Frame) -> Result<bool> {
+    let img = &*k!(img);
     Ok(
-        pixel_equal(&img, 99, 695, 255, 255, 255) &&
-        pixel_equal(&img, 241, 695, 255, 255, 255) &&
-        !pixel_equal(&img, 99, 689, 255, 255, 255)
+        pixel_equal(img, 99, 695, 255, 255, 255) &&
+        pixel_equal(img, 241, 695, 255, 255, 255) &&
+        !pixel_equal(img, 99, 689, 255, 255, 255)
     )
 }
 

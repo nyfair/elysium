@@ -1,12 +1,11 @@
 // {
 //   "author": "",
-//   "desc": "不朽剧目高配芙罗拉，建议120fps",
+//   "desc": "不朽剧目高配芙罗拉，适配720p+120fps",
 //   "loop": true,
 //   "timeout": 600
 // }
 
-fn task_ended() {
-    let img = shot();
+fn task_ended(img) {
     let p1 = get_pixel(img, 1139, 641);
     let p2 = get_pixel(img, 1130, 641);
     (p1[0] == 255 && p1[1] == 255 && p2[0] < 100 && p2[1] < 100) ||
@@ -37,7 +36,7 @@ if (p[0] == 255 && p[1] == 255) {
 }
 print("new stage");
 click(A, 0.1, 4.0);
-while !task_started() { wait(0.2); }
+while !task_started(shot()) { wait(0.2); }
 
 rstick(20000, 0);
 lstick(0, 10000, 0.35);

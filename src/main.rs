@@ -166,7 +166,7 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     let vision = Arc::new(vision::Vision::start(window)?);
     let pad = Arc::new(Mutex::new(input::Gamepad::new()
         .context("无法连接虚拟手柄：请以管理员身份运行，或确认已安装 ViGEmBus 驱动")?));
-    let assets = Arc::new(vision::load_assets(game.name(), 720)?);
+    let assets = Arc::new(vision::load_assets(game.name(), vision.get_dimension().1)?);
 
     let state = Arc::new(script_engine::TaskState {
         pause: Arc::new(Mutex::new(false)),
@@ -175,12 +175,9 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     #[cfg(feature = "ocr")]
     let ocr = ocr::Ocr::global().context("无法初始化 OCR 引擎")?;
     let mut engine = script_engine::new_engine(
-        &vision,
-        &pad,
-        &assets,
-        &state,
+        &vision, &pad, &assets, &state,
         #[cfg(feature = "ocr")]
-        &ocr,
+        &ocr
     );
     let log: Arc<dyn Fn(&str) + Send + Sync> = Arc::new(|msg| println!("{msg}"));
     let l = log.clone();
@@ -192,7 +189,7 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     match game {
         #[cfg(feature = "dna")]
         GameType::Dna => {
-            dna::setup_engine(&mut engine, &vision, &pad, &state);
+            dna::setup_engine(&mut engine, &pad, &state);
         }
         #[cfg(feature = "nte")]
         GameType::Nte => {
@@ -208,7 +205,7 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     let ast = Arc::new(engine.compile(&script)?);
     let has_script_ended = ast
         .iter_functions()
-        .any(|f| f.name == "task_ended" && f.params.is_empty());
+        .any(|f| f.name == "task_ended");
     let timeout = if args.timeout > 0 {
         Duration::from_secs(args.timeout)
     } else {

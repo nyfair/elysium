@@ -25,10 +25,12 @@ jobs:
         upx --ultra-brute *.exe
         7z a elysium-full.7z *.exe dna nte *.md
         cargo build --release --no-default-features --features dna
+        del *.exe
         move target\release\*.exe .
         upx --ultra-brute *.exe
         7z a elysium-dna.7z *.exe dna *.md
         cargo build --release --no-default-features --features nte
+        del *.exe
         move target\release\*.exe .
         upx --ultra-brute *.exe
         7z a elysium-nte.7z *.exe nte *.md
@@ -36,7 +38,7 @@ jobs:
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: elysium.7z
+        file: elysium*.7z
         tag: latest
         overwrite: true
         file_glob: true

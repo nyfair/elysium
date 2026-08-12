@@ -8,29 +8,26 @@ click(Y, 0.1, 0.2);
 for b in 0..BOOST { click(RIGHT); }
 click(A);
 click(A, 0.1, 4.0);
-while !task_started() { wait(0.2); }
+while !task_started(shot()) { wait(0.2); }
 wait(1.0);
 if STRATEGY.len() > 0 { run_combo(STRATEGY); }
 
 loop {
     let img = shot();
-    if (pixel_equal(img, 881, 655, 0, 0, 0)
-        && pixel_equal(img, 1123, 655, 0, 0, 0)
-        && !pixel_equal(img, 900, 681, 0, 0, 0)
-    ) {
+    if task_ended(img) {
         print("无尽任务完成");
         break;
     }
-    if (pixel_equal(img, 544, 630, 0, 0, 0)
-        && pixel_equal(img, 709, 630, 0, 0, 0)
-        && !pixel_equal(img, 550, 631, 0, 0, 0)
+    if (pixel_equal(img, 446, 265, 0, 0, 0)
+        && pixel_equal(img, 629, 265, 0, 0, 0)
+        && !pixel_equal(img, 544, 265, 0, 0, 0)
     ) {
         set_pause(true);
         click(Y);
     }
-    if (pixel_like(img, 381, 509, 30, 58, 50, 5)
-        && pixel_like(img, 477, 509, 30, 58, 50, 5)
-        && !pixel_like(img, 381, 535, 30, 58, 50, 5)
+    if (pixel_equal(img, 681, 256, 255, 255, 255)
+        && pixel_equal(img, 681, 288, 255, 255, 255)
+        && !pixel_equal(img, 670, 256, 255, 255, 255)
     ) {
         set_pause(true);
         if get_turn() >= TURN {
