@@ -162,7 +162,6 @@ fn init_resources(
     game: GameType,
     shared: &Arc<Mutex<SharedState>>,
     state: &Arc<TaskState>,
-    check_size: bool,
 ) -> Result<Resources> {
     let game_name = game.name();
     let title = match game {
@@ -175,12 +174,6 @@ fn init_resources(
         .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{e}"))?;
     vision::activate_window(&window);
     let vision = Arc::new(Vision::start(window)?);
-    if check_size {
-        let (w, h) = vision.dimensions();
-        if w != vision::W || h != vision::H {
-            anyhow::bail!("游戏窗口分辨率不是 {}x{}（当前 {w}x{h}），请调整后再运行", vision::W, vision::H);
-        }
-    }
     SharedState::push_log(shared, format!("正在捕获窗口：{title}"));
 
     let cached = k!(RES_CACHE).clone();
@@ -202,8 +195,13 @@ fn init_resources(
         }
     };
 
+    #[cfg(feature = "ocr")]
     let ocr = crate::ocr::Ocr::global().context("无法初始化 OCR 引擎")?;
-    let mut engine = script_engine::new_engine(&vision, &pad, &assets, state, &ocr);
+    let mut engine = script_engine::new_engine(
+        &vision, &pad, &assets, state,
+        #[cfg(feature = "ocr")]
+        &ocr
+    );
     let sh = shared.clone();
     let log: Arc<dyn Fn(&str) + Send + Sync> =
         Arc::new(move |msg| SharedState::push_log(&sh, msg.to_string()));
@@ -283,7 +281,7 @@ fn run_inner(
     exit: &Arc<AtomicBool>,
     reset: &Arc<AtomicBool>,
 ) -> Result<()> {
-    let resources = init_resources(game.clone(), shared, state, true)?;
+    let resources = init_resources(game.clone(), shared, state)?;
     let game_name = game.name();
     let script = std::fs::read_to_string(format!("{game_name}/scripts/{task}.rhai"))
         .map_err(|e| anyhow::anyhow!("找不到任务脚本：{e}"))?;
@@ -345,7 +343,7 @@ fn run_custom_inner(
     exit: &Arc<AtomicBool>,
     reset: &Arc<AtomicBool>,
 ) -> Result<()> {
-    let resources = init_resources(game.clone(), shared, state, false)?;
+    let resources = init_resources(game.clone(), shared, state)?;
     let ast = Arc::new(resources.engine.compile(&script)?);
 
     k!(shared).running = true;

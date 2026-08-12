@@ -23,8 +23,6 @@ use std::time::Duration;
 
 use crate::k;
 
-pub const W: u32 = 1280;
-pub const H: u32 = 720;
 pub type AssetMap = HashMap<String, GrayImage>;
 
 static FFT_PLANNER: Mutex<Option<FftPlanner<f64>>> = Mutex::new(None);
@@ -37,7 +35,7 @@ struct FrameBuf {
 
 static SHARED: Mutex<Option<Arc<Mutex<FrameBuf>>>> = Mutex::new(None);
 static EPOCH: AtomicU64 = AtomicU64::new(0);
-static CLIENT: Mutex<(u32, u32, u32, u32)> = Mutex::new((0, 0, W, H));
+static CLIENT: Mutex<(u32, u32, u32, u32)> = Mutex::new((0, 0, 0, 0));
 
 struct VisionHandler {
     epoch: u64,
@@ -60,8 +58,7 @@ impl GraphicsCaptureApiHandler for VisionHandler {
             control.stop();
             return Ok(());
         }
-        let (ox, oy, cw, ch) = *k!(CLIENT);
-        let fb = frame.buffer_crop(ox, oy, ox + cw, oy + ch)?;
+        let fb = frame.buffer()?;
         let w = fb.width();
         let h = fb.height();
         let mut raw = Vec::new();
@@ -129,7 +126,7 @@ impl Vision {
             MinimumUpdateIntervalSettings::Default,
             DirtyRegionSettings::Default,
             ColorFormat::Rgba8,
-            (W as i32, H as i32),
+            (cw as i32, ch as i32),
         );
         thread::Builder::new()
             .name("capture".into())
@@ -149,11 +146,6 @@ impl Vision {
 
     pub fn stop(&self) {
         EPOCH.fetch_add(1, Ordering::SeqCst);
-    }
-
-    pub fn dimensions(&self) -> (u32, u32) {
-        let f = k!(&self.buffer);
-        (f.width, f.height)
     }
 
     pub fn shot(&self) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {

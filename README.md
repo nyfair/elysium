@@ -5,8 +5,7 @@
 
 **安装与使用**
 1. 先装手柄驱动 [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe)
-2. 游戏窗口调成 **1280x720**
-3. 程序本体开箱即用，同时支持命令行调用
+2. 好了，程序本体开箱即用，同时支持命令行调用
 
 **预览**
 <img alt="1" src="https://github.com/user-attachments/assets/d3894887-d3a3-4140-af29-107ecc217a68" />
