@@ -3,8 +3,11 @@ mod input;
 mod script_engine;
 mod worker;
 mod tui;
+#[cfg(feature = "dna")]
 mod dna;
+#[cfg(feature = "nte")]
 mod nte;
+#[cfg(feature = "ocr")]
 mod ocr;
 
 use anyhow::{bail, Context, Result};
@@ -28,28 +31,36 @@ macro_rules! k {
 
 #[derive(ValueEnum, Clone, Debug, PartialEq, Eq)]
 pub enum GameType {
+    #[cfg(feature = "dna")]
     Dna,
+    #[cfg(feature = "nte")]
     Nte,
 }
 
 impl GameType {
     pub fn name(&self) -> &'static str {
         match self {
+            #[cfg(feature = "dna")]
             GameType::Dna => "dna",
+            #[cfg(feature = "nte")]
             GameType::Nte => "nte",
         }
     }
 
     pub fn display(&self) -> &'static str {
         match self {
+            #[cfg(feature = "dna")]
             GameType::Dna => "两个陀螺",
+            #[cfg(feature = "nte")]
             GameType::Nte => "海特洛",
         }
     }
 
     pub fn title(&self) -> &'static str {
         match self {
+            #[cfg(feature = "dna")]
             GameType::Dna => dna::WINDOW_TITLE,
+            #[cfg(feature = "nte")]
             GameType::Nte => nte::WINDOW_TITLE,
         }
     }
@@ -161,19 +172,29 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
         pause: Arc::new(Mutex::new(false)),
         cur_turn: Arc::new(Mutex::new(1)),
     });
+    #[cfg(feature = "ocr")]
     let ocr = ocr::Ocr::global().context("无法初始化 OCR 引擎")?;
-    let mut engine = script_engine::new_engine(&vision, &pad, &assets, &state, &ocr);
+    let mut engine = script_engine::new_engine(
+        &vision,
+        &pad,
+        &assets,
+        &state,
+        #[cfg(feature = "ocr")]
+        &ocr,
+    );
     let log: Arc<dyn Fn(&str) + Send + Sync> = Arc::new(|msg| println!("{msg}"));
     let l = log.clone();
     engine.on_print(move |msg: &str| l(msg));
 
-    let script = std::fs::read_to_string(&format!("{}/scripts/{}.rhai", game.name(), task))
+    let script = std::fs::read_to_string(format!("{}/scripts/{}.rhai", game.name(), task))
         .map_err(|e| anyhow::anyhow!("找不到任务脚本：{e}"))?;
 
     match game {
+        #[cfg(feature = "dna")]
         GameType::Dna => {
             dna::setup_engine(&mut engine, &vision, &pad, &state);
         }
+        #[cfg(feature = "nte")]
         GameType::Nte => {
             let chars = nte::load_characters()?;
             let matcher = Arc::new(nte::AvatarMatcher::load(&chars)?);
@@ -194,6 +215,7 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
         Duration::from_secs(meta.timeout)
     };
     match game {
+        #[cfg(feature = "dna")]
         GameType::Dna => dna::run(
             Arc::new(engine),
             vision,
@@ -208,6 +230,7 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
             meta.r#loop,
             timeout,
         )?,
+        #[cfg(feature = "nte")]
         GameType::Nte => nte::run(
             Arc::new(engine),
             ast,

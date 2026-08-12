@@ -8,6 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::vision::{Vision, AssetMap, get_pixel, pixel_equal, pixel_like, ncc_match};
 use crate::input::{Button, Gamepad};
 use crate::k;
+#[cfg(feature = "ocr")]
 use crate::ocr::Ocr;
 
 pub type Frame = Arc<Mutex<image::ImageBuffer<image::Rgb<u8>, Vec<u8>>>>;
@@ -45,6 +46,7 @@ pub fn new_engine(
     pad: &Arc<Mutex<Gamepad>>,
     assets: &Arc<AssetMap>,
     state: &TaskState,
+    #[cfg(feature = "ocr")]
     ocr: &Arc<Ocr>,
 ) -> Engine {
     let mut engine = Engine::new();
@@ -79,7 +81,7 @@ pub fn new_engine(
             None
         }
     });
-    engine.register_raw_fn("rand", &[std::any::TypeId::of::<i64>()], |_, args| {
+    engine.register_raw_fn("rand", [std::any::TypeId::of::<i64>()], |_, args| {
         let max_val = args[0].as_int().unwrap_or(1);
         let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros() as i64;
         let limit = if max_val <= 0 { 1 } else { max_val };
@@ -114,14 +116,14 @@ pub fn new_engine(
         Arc::new(Mutex::new(img))
     });
     engine.register_fn("get_pixel", move |img: Frame, x: i64, y: i64| -> Array {
-        let p = get_pixel(&*k!(img), x as u32, y as u32);
+        let p = get_pixel(&k!(img), x as u32, y as u32);
         vec![(p[0] as i64).into(), (p[1] as i64).into(), (p[2] as i64).into()]
     });
     engine.register_fn("pixel_equal", move |img: Frame, x: i64, y: i64, r: i64, g: i64, b: i64| -> bool {
-        pixel_equal(&*k!(img), x as u32, y as u32, r as u8, g as u8, b as u8)
+        pixel_equal(&k!(img), x as u32, y as u32, r as u8, g as u8, b as u8)
     });
     engine.register_fn("pixel_like", move |img: Frame, x: i64, y: i64, r: i64, g: i64, b: i64, v: i64| -> bool {
-        pixel_like(&*k!(img), x as u32, y as u32, r as u8, g as u8, b as u8, v as u8)
+        pixel_like(&k!(img), x as u32, y as u32, r as u8, g as u8, b as u8, v as u8)
     });
     let a = assets.clone();
     engine.register_fn("ncc_match", move |img: Frame, tplt: &str| -> Array {
@@ -144,25 +146,25 @@ pub fn new_engine(
     });
 
     let p = pad.clone();
-    engine.register_fn("press", move |btn: Button| k!(p).press(btn.to_xbuttons(), 0.1));
+    engine.register_fn("press", move |btn: Button| k!(p).press(btn.xbox(), 0.1));
     let p = pad.clone();
-    engine.register_fn("press", move |btn: Button, hold: f64| k!(p).press(btn.to_xbuttons(), hold));
+    engine.register_fn("press", move |btn: Button, hold: f64| k!(p).press(btn.xbox(), hold));
     let p = pad.clone();
-    engine.register_fn("press_raw", move |btn: Button| k!(p).press_raw(btn.to_xbuttons()));
+    engine.register_fn("press_raw", move |btn: Button| k!(p).press_raw(btn.xbox()));
     let p = pad.clone();
-    engine.register_fn("release", move |btn: Button| k!(p).release(btn.to_xbuttons(), 0.1));
+    engine.register_fn("release", move |btn: Button| k!(p).release(btn.xbox(), 0.1));
     let p = pad.clone();
-    engine.register_fn("release", move |btn: Button, post: f64| k!(p).release(btn.to_xbuttons(), post));
+    engine.register_fn("release", move |btn: Button, post: f64| k!(p).release(btn.xbox(), post));
     let p = pad.clone();
-    engine.register_fn("release_raw", move |btn: Button| k!(p).release_raw(btn.to_xbuttons()));
+    engine.register_fn("release_raw", move |btn: Button| k!(p).release_raw(btn.xbox()));
     let p = pad.clone();
     engine.register_fn("pad_update", move || k!(p).update());
     let p = pad.clone();
-    engine.register_fn("click", move |btn: Button| k!(p).click(btn.to_xbuttons(), 0.1, 0.1));
+    engine.register_fn("click", move |btn: Button| k!(p).click(btn.xbox(), 0.1, 0.1));
     let p = pad.clone();
-    engine.register_fn("click", move |btn: Button, hold: f64| k!(p).click(btn.to_xbuttons(), hold, 0.1));
+    engine.register_fn("click", move |btn: Button, hold: f64| k!(p).click(btn.xbox(), hold, 0.1));
     let p = pad.clone();
-    engine.register_fn("click", move |btn: Button, hold: f64, post: f64| k!(p).click(btn.to_xbuttons(), hold, post));
+    engine.register_fn("click", move |btn: Button, hold: f64, post: f64| k!(p).click(btn.xbox(), hold, post));
     let p = pad.clone();
     engine.register_fn("pad_reset", move || k!(p).reset());
     let p = pad.clone();
@@ -178,33 +180,40 @@ pub fn new_engine(
     let p = pad.clone();
     engine.register_fn("rstick", move |x: i64, y: i64, dur: f64| k!(p).rstick(x as i16, y as i16, dur));
 
-    let o = ocr.clone();
-    engine.register_fn("ocr_info", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Array {
-        ocr_roi(&o, &k!(img), x, y, w, h, 2.)
-    });
-    let o = ocr.clone();
-    engine.register_fn(
-        "ocr_info",
-        move |img: Frame, x: i64, y: i64, w: i64, h: i64, scale: f64| -> Array {
-            ocr_roi(&o, &k!(img), x, y, w, h, scale as f32)
-        },
-    );
-    let o = ocr.clone();
-    engine.register_fn("ocr", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Dynamic {
-        ocr_text_roi(&o, &k!(img), x, y, w, h, 2.).into()
-    });
-    let o = ocr.clone();
-    engine.register_fn(
-        "ocr",
-        move |img: Frame, x: i64, y: i64, w: i64, h: i64, scale: f64| -> Dynamic {
-            ocr_text_roi(&o, &k!(img), x, y, w, h, scale as f32).into()
-        },
-    );
+    #[cfg(feature = "ocr")]
+    {
+        let o = ocr.clone();
+        engine.register_fn("ocr", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Array {
+            ocr_roi(&o, &k!(img), x, y, w, h, 2.)
+        });
+        let o = ocr.clone();
+        engine.register_fn(
+            "ocr",
+            move |img: Frame, x: i64, y: i64, w: i64, h: i64, scale: f64| -> Array {
+                ocr_roi(&o, &k!(img), x, y, w, h, scale as f32)
+            },
+        );
+        let o = ocr.clone();
+        engine.register_fn(
+            "ocr_text",
+            move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Dynamic {
+                ocr_text_roi(&o, &k!(img), x, y, w, h, 2.).into()
+            },
+        );
+        let o = ocr.clone();
+        engine.register_fn(
+            "ocr_text",
+            move |img: Frame, x: i64, y: i64, w: i64, h: i64, scale: f64| -> Dynamic {
+                ocr_text_roi(&o, &k!(img), x, y, w, h, scale as f32).into()
+            },
+        );
+    }
 
     engine.on_print(|s: &str| println!("{s}"));
     engine
 }
 
+#[cfg(feature = "ocr")]
 fn ocr_roi(
     ocr: &Ocr,
     img: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
@@ -235,6 +244,7 @@ fn ocr_roi(
     }
 }
 
+#[cfg(feature = "ocr")]
 fn ocr_text_roi(
     ocr: &Ocr,
     img: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,

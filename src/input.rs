@@ -43,7 +43,7 @@ pub enum Button {
 }
 
 impl Button {
-    pub fn to_xbuttons(&self) -> XButtons {
+    pub fn xbox(&self) -> XButtons {
         match self {
             Button::Up => UP,
             Button::Down => DOWN,

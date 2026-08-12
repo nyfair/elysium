@@ -88,7 +88,12 @@ struct App {
 
 impl App {
     fn new(args: &Args) -> Self {
-        let games = vec![GameType::Dna, GameType::Nte];
+        let games = vec![
+            #[cfg(feature = "dna")]
+            GameType::Dna,
+            #[cfg(feature = "nte")]
+            GameType::Nte,
+        ];
         let tasks = scan_tasks(&games[0]);
         let mut app = Self {
             page: Page::Config,
@@ -406,19 +411,18 @@ fn handle_mouse(app: &mut App, me: MouseEvent) {
                 app.log_scroll = app.log_scroll.saturating_sub(3);
             }
         }
-        MouseEventKind::Down(MouseButton::Left) => {
-            if app.page == Page::Config {
+        MouseEventKind::Down(MouseButton::Left)
+            if app.page == Page::Config => {
                 handle_config_click(app, me.row, me.column);
             }
-        }
         _ => {}
     }
 }
 
 fn handle_config_click(app: &mut App, row: u16, col: u16) {
     let pos = Position::new(col, row);
-    if let Some(r) = app.game_rect {
-        if r.contains(pos) && row > r.y {
+    if let Some(r) = app.game_rect
+        && r.contains(pos) && row > r.y {
             let idx = (row - r.y - 1) as usize;
             if idx < app.games.len() {
                 app.selected_game = idx;
@@ -427,9 +431,8 @@ fn handle_config_click(app: &mut App, row: u16, col: u16) {
             }
             return;
         }
-    }
-    if let Some(r) = app.task_rect {
-        if r.contains(pos) && row > r.y {
+    if let Some(r) = app.task_rect
+        && r.contains(pos) && row > r.y {
             let idx = (row - r.y - 1) as usize;
             if idx < app.tasks.len() {
                 app.selected_task = idx;
@@ -438,21 +441,18 @@ fn handle_config_click(app: &mut App, row: u16, col: u16) {
             }
             return;
         }
-    }
-    if let Some(r) = app.param_rect {
-        if r.contains(pos) && row > r.y {
+    if let Some(r) = app.param_rect
+        && r.contains(pos) && row > r.y {
             let idx = (row - r.y - 1) as usize;
             if idx < PARAMS.len() {
                 app.param_idx = idx;
                 app.focus = Focus::Param;
             }
         }
-    }
-    if let Some(r) = app.custom_rect {
-        if r.contains(pos) {
+    if let Some(r) = app.custom_rect
+        && r.contains(pos) {
             app.page = Page::Custom;
         }
-    }
 }
 
 fn draw_config(f: &mut Frame, app: &mut App) {

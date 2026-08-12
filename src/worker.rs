@@ -166,7 +166,9 @@ fn init_resources(
 ) -> Result<Resources> {
     let game_name = game.name();
     let title = match game {
+        #[cfg(feature = "dna")]
         GameType::Dna => crate::dna::WINDOW_TITLE,
+        #[cfg(feature = "nte")]
         GameType::Nte => crate::nte::WINDOW_TITLE,
     };
     let window = windows_capture::window::Window::from_contains_name(title)
@@ -209,9 +211,11 @@ fn init_resources(
     engine.on_print(move |msg: &str| l(msg));
 
     match game {
+        #[cfg(feature = "dna")]
         GameType::Dna => {
             crate::dna::setup_engine(&mut engine, &vision, &pad, state);
         }
+        #[cfg(feature = "nte")]
         GameType::Nte => {
             let chars = crate::nte::load_characters()?;
             let matcher = Arc::new(crate::nte::AvatarMatcher::load(&chars)?);
@@ -281,7 +285,7 @@ fn run_inner(
 ) -> Result<()> {
     let resources = init_resources(game.clone(), shared, state, true)?;
     let game_name = game.name();
-    let script = std::fs::read_to_string(&format!("{game_name}/scripts/{task}.rhai"))
+    let script = std::fs::read_to_string(format!("{game_name}/scripts/{task}.rhai"))
         .map_err(|e| anyhow::anyhow!("找不到任务脚本：{e}"))?;
     let meta = parse_meta(&script);
     let ast = Arc::new(resources.engine.compile(&script)?);
@@ -297,6 +301,7 @@ fn run_inner(
 
     k!(shared).running = true;
     let result = match game {
+        #[cfg(feature = "dna")]
         GameType::Dna => crate::dna::run(
             resources.engine.clone(),
             resources.vision.clone(),
@@ -311,6 +316,7 @@ fn run_inner(
             meta.r#loop,
             timeout,
         ),
+        #[cfg(feature = "nte")]
         GameType::Nte => crate::nte::run(
             resources.engine.clone(),
             ast,

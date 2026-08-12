@@ -20,6 +20,12 @@ windows-link = "0"
 name = "obs64"
 path = "src/main.rs"
 
+[features]
+default = ["dna", "nte"]
+dna = []
+nte = ["ocr"]
+ocr = []
+
 [profile.release]
 strip = true
 lto = true

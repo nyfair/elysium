@@ -33,8 +33,8 @@ if team[0].name() == target {
 }
 
 travel("绘空町维特海默塔");
-wait(4.0);
-lstick(-20000, -30000, 1.5);
+wait(8.0);
+lstick(-24000, -30000, 1.2);
 lstick();
 for i in 0..3 {
     click(B, 0.1, 1.5);
