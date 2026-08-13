@@ -11,7 +11,8 @@ use std::io::stdout;
 use std::time::Duration;
 
 use crate::{Args, GameType, k};
-use crate::worker::{self, Worker};
+use crate::script_engine;
+use crate::worker;
 
 const PARAMS: [&str; 5] = ["strategy", "combo", "timeout", "boost", "turn"];
 const PARAM_HELP: [&str; 5] = [
@@ -78,11 +79,11 @@ struct App {
     param_rect: Option<Rect>,
     log_scroll: usize,
     notice: Option<String>,
-    script_meta: Option<crate::worker::ScriptMeta>,
+    script_meta: Option<script_engine::ScriptMeta>,
     custom: bool,
     custom_script: String,
     custom_rect: Option<Rect>,
-    worker: Option<Worker>,
+    worker: Option<worker::Worker>,
     quit: bool,
 }
 
@@ -148,7 +149,7 @@ impl App {
             .and_then(|t| {
                 std::fs::read_to_string(format!("{}/scripts/{}.rhai", self.selected_game().name(), t)).ok()
             })
-            .map(|s| crate::worker::parse_meta(&s));
+            .map(|s| script_engine::ScriptMeta::parse(&s));
     }
 
     fn build_args(&self) -> Args {

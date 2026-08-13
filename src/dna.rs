@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rhai::{CallFnOptions, Engine, Scope, AST};
+use rhai::{AST, CallFnOptions, Engine, Scope};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -9,7 +9,7 @@ use crate::input::*;
 use crate::script_engine::{sleep, Frame, TaskState, StopReason, STOP};
 use crate::vision::{Vision, pixel_equal};
 use crate::worker;
-use crate::{Args, k};
+use crate::k;
 
 pub const WINDOW_TITLE: &str = "二重螺旋  ";
 
@@ -27,24 +27,20 @@ pub fn setup_engine(
 
 pub fn run(
     engine: Arc<Engine>,
-    vision: Arc<Vision>,
-    pad: Arc<Mutex<Gamepad>>,
     ast: Arc<AST>,
-    args: Args,
-    state: Arc<TaskState>,
+    scope: Arc<Scope<'static>>,
+    state: &TaskState,
     exit: Arc<AtomicBool>,
     reset: Arc<AtomicBool>,
+    timeout: std::time::Duration,
     log: Arc<dyn Fn(&str) + Send + Sync>,
-    has_script_ended: bool,
+    vision: Arc<Vision>,
+    pad: Arc<Mutex<Gamepad>>,
     loop_enabled: bool,
-    timeout: Duration,
 ) -> Result<()> {
-    let mut detect_scope = Scope::new();
-    detect_scope.push_constant("BOOST", args.boost as i64);
-    detect_scope.push_constant("STRATEGY", args.strategy.clone());
-    detect_scope.push_constant("COMBO", args.combo.clone());
-    detect_scope.push_constant("TURN", args.turn as i64);
-    detect_scope.push_constant("TIMEOUT", args.timeout);
+    let has_script_ended = ast
+        .iter_functions()
+        .any(|f| f.name == "task_ended");
 
     loop {
         if exit.load(Ordering::SeqCst) {
@@ -53,7 +49,8 @@ pub fn run(
         STOP.store(false, Ordering::SeqCst);
         if loop_enabled {
             log("等待任务结束");
-            while !detect_ended(&engine, &ast, &mut detect_scope, &vision, has_script_ended)? {
+            let mut s = (*scope).clone();
+            while !detect_ended(&engine, &ast, &mut s, &vision, has_script_ended)? {
                 if exit.load(Ordering::SeqCst) {
                     return Ok(());
                 }
@@ -62,8 +59,7 @@ pub fn run(
         }
 
         *k!(&state.pause) = false;
-        *k!(&state.cur_turn) = 1;
-        let handle = worker::spawn_script(engine.clone(), ast.clone(), args.clone(), log.clone());
+        let handle = worker::spawn_script(engine.clone(), ast.clone(), scope.clone(), log.clone());
         let start = Instant::now();
         let mut started = false;
 
@@ -72,9 +68,10 @@ pub fn run(
                 if !started && start.elapsed() >= Duration::from_secs(5) {
                     started = true;
                 }
-                if started && detect_ended(&engine, &ast, &mut detect_scope, &vision, has_script_ended)? {
+                let mut s = (*scope).clone();
+                if started && detect_ended(&engine, &ast, &mut s, &vision, has_script_ended)? {
                     sleep(0.5);
-                    if detect_ended(&engine, &ast, &mut detect_scope, &vision, has_script_ended)? {
+                    if detect_ended(&engine, &ast, &mut s, &vision, has_script_ended)? {
                         STOP.store(true, Ordering::SeqCst);
                         break StopReason::TaskEnded;
                     }
@@ -115,7 +112,7 @@ pub fn run(
 fn detect_ended(
     engine: &Engine,
     ast: &AST,
-    scope: &mut Scope<'_>,
+    scope: &mut Scope<'static>,
     vision: &Arc<Vision>,
     has_script_ended: bool,
 ) -> Result<bool> {

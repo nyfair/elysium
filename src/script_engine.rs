@@ -1,4 +1,4 @@
-use rhai::{Array, Dynamic, Engine, Map, Module};
+use rhai::{Array, Dynamic, Engine, Map, Module, Scope};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::vision::{Vision, AssetMap, get_pixel, pixel_equal, pixel_like, ncc_match};
 use crate::input::{Button, Gamepad};
-use crate::k;
+use crate::{Args, k};
 #[cfg(feature = "ocr")]
 use crate::ocr::Ocr;
 
@@ -27,9 +27,28 @@ pub fn sleep(secs: f64) {
     }
 }
 
+pub fn init_scope(args: &Args) -> Scope<'static> {
+    let mut scope = Scope::new();
+    scope.push_constant("BOOST", args.boost as i64);
+    scope.push_constant("STRATEGY", args.strategy.clone());
+    scope.push_constant("COMBO", args.combo.clone());
+    scope.push_constant("TURN", args.turn as i64);
+    scope.push_constant("TIMEOUT", args.timeout);
+    scope
+}
+
 pub struct TaskState {
     pub pause: Arc<Mutex<bool>>,
     pub cur_turn: Arc<Mutex<i64>>,
+}
+
+impl Default for TaskState {
+    fn default() -> Self {
+        Self {
+            pause: Arc::new(Mutex::new(false)),
+            cur_turn: Arc::new(Mutex::new(1)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -39,6 +58,64 @@ pub enum StopReason {
     Reset,
     Timeout,
     TaskEnded,
+}
+
+pub struct ScriptMeta {
+    pub author: String,
+    pub desc: String,
+    pub r#loop: bool,
+    pub timeout: u64,
+}
+
+impl ScriptMeta {
+    pub const DEFAULT_TIMEOUT: u64 = 86400;
+
+    pub fn parse(script: &str) -> Self {
+        let mut lines = Vec::new();
+        let mut in_block = false;
+        for line in script.lines() {
+            let t = line.trim();
+            if let Some(rest) = t.strip_prefix("//") {
+                let c = rest.trim();
+                if c.starts_with('{') {
+                    in_block = true;
+                }
+                if in_block {
+                    lines.push(c);
+                }
+                if in_block && c.ends_with('}') {
+                    break;
+                }
+            } else if in_block {
+                break;
+            }
+        }
+        if lines.is_empty() {
+            return Self::default();
+        }
+        let v: serde_json::Value =
+            serde_json::from_str(&lines.join("\n")).unwrap_or(serde_json::Value::Null);
+        if v.is_null() {
+            return Self::default();
+        }
+        Self {
+            author: v.get("author").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+            desc: v.get("desc").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+            r#loop: v.get("loop").and_then(|x| x.as_bool()).unwrap_or(true),
+            timeout: v.get("timeout").and_then(|x| x.as_u64()).unwrap_or(Self::DEFAULT_TIMEOUT),
+        }
+    }
+}
+
+impl Default for ScriptMeta {
+    fn default() -> Self {
+        Self {
+            author: String::new(),
+            desc: String::new(),
+            r#loop: true,
+            timeout: Self::DEFAULT_TIMEOUT,
+        }
+    }
 }
 
 pub fn new_engine(

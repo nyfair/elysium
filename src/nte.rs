@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use image::{ImageBuffer, Rgb};
-use rhai::{Array, Dynamic, Engine, AST};
+use rhai::{Array, Dynamic, Engine, Scope, AST};
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,7 +12,7 @@ use crate::ocr::Ocr;
 use crate::script_engine::{sleep, Frame, TaskState, STOP};
 use crate::vision::{MatchReport, TemplateSet, Vision};
 use crate::worker;
-use crate::{Args, k};
+use crate::k;
 
 pub const WINDOW_TITLE: &str = "异环  ";
 
@@ -307,13 +307,14 @@ fn travel(
 
 pub fn setup_engine(
     engine: &mut Engine,
-    matcher: &Arc<AvatarMatcher>,
-    vision: &Arc<Vision>,
     pad: &Arc<Mutex<Gamepad>>,
-    ocr: &Arc<Ocr>,
-    tp: &Arc<TpData>,
     _state: &TaskState,
+    vision: &Arc<Vision>,
+    ocr: &Arc<Ocr>,
 ) {
+    let chars = load_characters().unwrap();
+    let matcher = Arc::new(AvatarMatcher::load(&chars).unwrap());
+    let tp = Arc::new(load_tp().unwrap());
     engine.register_fn("name", |c: &mut Character| c.name.clone());
     engine.register_fn("tag", |c: &mut Character| -> Array {
         c.tag.iter().map(|t| t.into()).collect()
@@ -369,20 +370,21 @@ pub fn setup_engine(
 pub fn run(
     engine: Arc<Engine>,
     ast: Arc<AST>,
-    args: Args,
+    scope: Arc<Scope<'static>>,
+    _state: &TaskState,
     exit: Arc<AtomicBool>,
     reset: Arc<AtomicBool>,
     timeout: std::time::Duration,
     log: Arc<dyn Fn(&str) + Send + Sync>,
 ) -> Result<()> {
     STOP.store(false, Ordering::SeqCst);
-    let handle = worker::spawn_script(engine, ast, args, log);
+    let handle = worker::spawn_script(engine.clone(), ast.clone(), scope.clone(), log.clone());
     let start = Instant::now();
     loop {
         if worker::check(&handle, &exit, &reset, timeout, start).is_some() {
             break;
         }
-        sleep(0.1);
+        sleep(0.5);
     }
     let _ = handle.join();
     STOP.store(false, Ordering::SeqCst);

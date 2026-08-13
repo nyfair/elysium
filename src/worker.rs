@@ -3,13 +3,13 @@ use rhai::{AST, Engine, Scope};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+use std::thread::{Builder, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crate::{Args, GameType, k};
 use crate::input::Gamepad;
-use crate::script_engine::{self, sleep, TaskState, STOP, StopReason};
-use crate::vision::{self, AssetMap, Vision};
+use crate::script_engine::{sleep, init_scope, new_engine, STOP, StopReason, ScriptMeta, TaskState};
+use crate::vision::{activate_window, load_assets, AssetMap, Vision};
 
 const MAX_LOGS: usize = 200;
 
@@ -44,64 +44,6 @@ pub fn check(
         return Some(StopReason::Timeout);
     }
     None
-}
-
-pub struct ScriptMeta {
-    pub author: String,
-    pub desc: String,
-    pub r#loop: bool,
-    pub timeout: u64,
-}
-
-impl ScriptMeta {
-    const DEFAULT_TIMEOUT: u64 = 86400;
-}
-
-impl Default for ScriptMeta {
-    fn default() -> Self {
-        Self {
-            author: String::new(),
-            desc: String::new(),
-            r#loop: true,
-            timeout: Self::DEFAULT_TIMEOUT,
-        }
-    }
-}
-
-pub fn parse_meta(script: &str) -> ScriptMeta {
-    let mut lines = Vec::new();
-    let mut in_block = false;
-    for line in script.lines() {
-        let t = line.trim();
-        if let Some(rest) = t.strip_prefix("//") {
-            let c = rest.trim();
-            if c.starts_with('{') {
-                in_block = true;
-            }
-            if in_block {
-                lines.push(c);
-            }
-            if in_block && c.ends_with('}') {
-                break;
-            }
-        } else if in_block {
-            break;
-        }
-    }
-    if lines.is_empty() {
-        return ScriptMeta::default();
-    }
-    let v: serde_json::Value =
-        serde_json::from_str(&lines.join("\n")).unwrap_or(serde_json::Value::Null);
-    if v.is_null() {
-        return ScriptMeta::default();
-    }
-    ScriptMeta {
-        author: v.get("author").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        desc: v.get("desc").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        r#loop: v.get("loop").and_then(|x| x.as_bool()).unwrap_or(true),
-        timeout: v.get("timeout").and_then(|x| x.as_u64()).unwrap_or(ScriptMeta::DEFAULT_TIMEOUT),
-    }
 }
 
 pub struct SharedState {
@@ -172,7 +114,7 @@ fn init_resources(
     };
     let window = windows_capture::window::Window::from_contains_name(title)
         .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{e}"))?;
-    vision::activate_window(&window);
+    activate_window(&window);
     let vision = Arc::new(Vision::start(window)?);
     SharedState::push_log(shared, format!("正在捕获窗口：{title}"));
 
@@ -185,7 +127,7 @@ fn init_resources(
         _ => {
             let pad = Arc::new(Mutex::new(Gamepad::new()
                 .context("无法连接虚拟手柄：请以管理员身份运行，或确认已安装 ViGEmBus 驱动")?));
-            let assets = Arc::new(vision::load_assets(game_name, vision.get_dimension().1)?);
+            let assets = Arc::new(load_assets(game_name, vision.get_dimension().1)?);
             *k!(RES_CACHE) = Some((
                 game.clone(),
                 GameResources { pad: pad.clone(), assets: assets.clone() },
@@ -197,8 +139,8 @@ fn init_resources(
 
     #[cfg(feature = "ocr")]
     let ocr = crate::ocr::Ocr::global().context("无法初始化 OCR 引擎")?;
-    let mut engine = script_engine::new_engine(
-        &vision, &pad, &assets, state,
+    let mut engine = new_engine(
+        &vision, &pad, &assets, &state,
         #[cfg(feature = "ocr")]
         &ocr
     );
@@ -211,14 +153,11 @@ fn init_resources(
     match game {
         #[cfg(feature = "dna")]
         GameType::Dna => {
-            crate::dna::setup_engine(&mut engine, &pad, state);
+            crate::dna::setup_engine(&mut engine, &pad, &state);
         }
         #[cfg(feature = "nte")]
         GameType::Nte => {
-            let chars = crate::nte::load_characters()?;
-            let matcher = Arc::new(crate::nte::AvatarMatcher::load(&chars)?);
-            let tp = Arc::new(crate::nte::load_tp()?);
-            crate::nte::setup_engine(&mut engine, &matcher, &vision, &pad, &ocr, &tp, state);
+            crate::nte::setup_engine(&mut engine, &pad, &state, &vision, &ocr);
         }
     }
     let engine = Arc::new(engine);
@@ -228,17 +167,14 @@ fn init_resources(
 
 pub fn spawn(game: GameType, task: String, args: Args) -> Result<Worker> {
     let shared = SharedState::new();
-    let state = Arc::new(TaskState {
-        pause: Arc::new(Mutex::new(false)),
-        cur_turn: Arc::new(Mutex::new(1)),
-    });
     let exit = Arc::new(AtomicBool::new(false));
     let reset = Arc::new(AtomicBool::new(false));
+    let state = Arc::new(TaskState::default());
     let s = shared.clone();
-    let st = state.clone();
     let ex = exit.clone();
     let re = reset.clone();
-    let thread = thread::Builder::new()
+    let st = state.clone();
+    let thread = Builder::new()
         .name("task".into())
         .spawn(move || {
             if let Err(e) = run_inner(game, task, args, &s, &st, &ex, &re) {
@@ -251,17 +187,14 @@ pub fn spawn(game: GameType, task: String, args: Args) -> Result<Worker> {
 
 pub fn spawn_custom(game: GameType, script: String, args: Args) -> Result<Worker> {
     let shared = SharedState::new();
-    let state = Arc::new(TaskState {
-        pause: Arc::new(Mutex::new(false)),
-        cur_turn: Arc::new(Mutex::new(1)),
-    });
     let exit = Arc::new(AtomicBool::new(false));
     let reset = Arc::new(AtomicBool::new(false));
+    let state = Arc::new(TaskState::default());
     let s = shared.clone();
-    let st = state.clone();
     let ex = exit.clone();
     let re = reset.clone();
-    let thread = thread::Builder::new()
+    let st = state.clone();
+    let thread = Builder::new()
         .name("task".into())
         .spawn(move || {
             if let Err(e) = run_custom_inner(game, script, args, &s, &st, &ex, &re) {
@@ -285,40 +218,37 @@ fn run_inner(
     let game_name = game.name();
     let script = std::fs::read_to_string(format!("{game_name}/scripts/{task}.rhai"))
         .map_err(|e| anyhow::anyhow!("找不到任务脚本：{e}"))?;
-    let meta = parse_meta(&script);
+    let meta = ScriptMeta::parse(&script);
     let ast = Arc::new(resources.engine.compile(&script)?);
-    let has_script_ended = ast
-        .iter_functions()
-        .any(|f| f.name == "task_ended" && f.params.is_empty());
-
     let timeout = if args.timeout > 0 {
         Duration::from_secs(args.timeout)
     } else {
         Duration::from_secs(meta.timeout)
     };
+    let scope = Arc::new(init_scope(&args));
 
     k!(shared).running = true;
     let result = match game {
         #[cfg(feature = "dna")]
         GameType::Dna => crate::dna::run(
             resources.engine.clone(),
-            resources.vision.clone(),
-            resources.pad.clone(),
             ast,
-            args,
-            state.clone(),
+            scope,
+            &state,
             exit.clone(),
             reset.clone(),
-            resources.log.clone(),
-            has_script_ended,
-            meta.r#loop,
             timeout,
+            resources.log.clone(),
+            resources.vision.clone(),
+            resources.pad.clone(),
+            meta.r#loop,
         ),
         #[cfg(feature = "nte")]
         GameType::Nte => crate::nte::run(
             resources.engine.clone(),
             ast,
-            args,
+            scope,
+            &state,
             exit.clone(),
             reset.clone(),
             timeout,
@@ -353,7 +283,8 @@ fn run_custom_inner(
     } else {
         Duration::from_secs(ScriptMeta::DEFAULT_TIMEOUT)
     };
-    let handle = spawn_script(resources.engine.clone(), ast, args, resources.log.clone());
+    let scope = Arc::new(init_scope(&args));
+    let handle = spawn_script(resources.engine.clone(), ast, scope, resources.log.clone());
     let start = Instant::now();
     loop {
         if check(&handle, exit, reset, timeout, start).is_some() {
@@ -372,20 +303,14 @@ fn run_custom_inner(
 pub fn spawn_script(
     engine: Arc<Engine>,
     ast: Arc<AST>,
-    args: Args,
+    scope: Arc<Scope<'static>>,
     log: Arc<dyn Fn(&str) + Send + Sync>,
 ) -> JoinHandle<()> {
     STOP.store(false, Ordering::SeqCst);
-    thread::Builder::new()
-        .name("task-sub".into())
+    Builder::new()
         .spawn(move || {
-            let mut scope = Scope::new();
-            scope.push_constant("BOOST", args.boost as i64);
-            scope.push_constant("STRATEGY", args.strategy.clone());
-            scope.push_constant("COMBO", args.combo.clone());
-            scope.push_constant("TURN", args.turn as i64);
-            scope.push_constant("TIMEOUT", args.timeout);
-            match engine.run_ast_with_scope(&mut scope, &ast) {
+            let mut s = (*scope).clone();
+            match engine.run_ast_with_scope(&mut s, &ast) {
                 Ok(()) => {},
                 Err(e) => {
                     let stopped = matches!(

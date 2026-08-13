@@ -22,6 +22,8 @@ use windows::Win32::UI::Shell::{IsUserAnAdmin, ShellExecuteW};
 use windows::Win32::UI::WindowsAndMessaging;
 use windows_capture::window::Window;
 
+use crate::script_engine::TaskState;
+
 #[macro_export]
 macro_rules! k {
     ($mutex:expr) => {
@@ -167,13 +169,10 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     let pad = Arc::new(Mutex::new(input::Gamepad::new()
         .context("无法连接虚拟手柄：请以管理员身份运行，或确认已安装 ViGEmBus 驱动")?));
     let assets = Arc::new(vision::load_assets(game.name(), vision.get_dimension().1)?);
-
-    let state = Arc::new(script_engine::TaskState {
-        pause: Arc::new(Mutex::new(false)),
-        cur_turn: Arc::new(Mutex::new(1)),
-    });
     #[cfg(feature = "ocr")]
     let ocr = ocr::Ocr::global().context("无法初始化 OCR 引擎")?;
+
+    let state = Arc::new(TaskState::default());
     let mut engine = script_engine::new_engine(
         &vision, &pad, &assets, &state,
         #[cfg(feature = "ocr")]
@@ -185,7 +184,7 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
 
     let script = std::fs::read_to_string(format!("{}/scripts/{}.rhai", game.name(), task))
         .map_err(|e| anyhow::anyhow!("找不到任务脚本：{e}"))?;
-
+    let state = Arc::new(script_engine::TaskState::default());
     match game {
         #[cfg(feature = "dna")]
         GameType::Dna => {
@@ -193,45 +192,41 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
         }
         #[cfg(feature = "nte")]
         GameType::Nte => {
-            let chars = nte::load_characters()?;
-            let matcher = Arc::new(nte::AvatarMatcher::load(&chars)?);
-            let tp = Arc::new(nte::load_tp()?);
-            nte::setup_engine(&mut engine, &matcher, &vision, &pad, &ocr, &tp, &state);
+            nte::setup_engine(&mut engine, &pad, &state, &vision, &ocr);
         }
     }
     let exit = Arc::new(AtomicBool::new(false));
     let reset = Arc::new(AtomicBool::new(false));
-    let meta = worker::parse_meta(&script);
+    let meta = script_engine::ScriptMeta::parse(&script);
     let ast = Arc::new(engine.compile(&script)?);
-    let has_script_ended = ast
-        .iter_functions()
-        .any(|f| f.name == "task_ended");
     let timeout = if args.timeout > 0 {
         Duration::from_secs(args.timeout)
     } else {
         Duration::from_secs(meta.timeout)
     };
+    let scope = Arc::new(script_engine::init_scope(args));
+
     match game {
         #[cfg(feature = "dna")]
         GameType::Dna => dna::run(
             Arc::new(engine),
-            vision,
-            pad,
             ast,
-            args.clone(),
-            state,
+            scope,
+            &state,
             exit,
             reset,
-            log,
-            has_script_ended,
-            meta.r#loop,
             timeout,
+            log,
+            vision,
+            pad,
+            meta.r#loop,
         )?,
         #[cfg(feature = "nte")]
         GameType::Nte => nte::run(
             Arc::new(engine),
             ast,
-            args.clone(),
+            scope,
+            &state,
             exit,
             reset,
             timeout,
