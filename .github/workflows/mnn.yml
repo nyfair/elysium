@@ -17,7 +17,7 @@ jobs:
         cd MNN*
         mkdir build
         cd build
-        cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DMNN_BUILD_SHARED_LIBS=OFF -DMNN_BUILD_TOOLS=OFF -DMNN_BUILD_MINI=ON -DCMAKE_C_FLAGS=/D_USE_STD_VECTOR_ALGORITHMS=0 -DCMAKE_CXX_FLAGS=/D_USE_STD_VECTOR_ALGORITHMS=0
+        cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DMNN_BUILD_SHARED_LIBS=OFF -DMNN_BUILD_TOOLS=OFF -DCMAKE_C_FLAGS=/D_USE_STD_VECTOR_ALGORITHMS=0 -DCMAKE_CXX_FLAGS=/D_USE_STD_VECTOR_ALGORITHMS=0
         cmake --build .
         mkdir ../../lib
         move *.lib ../../lib/

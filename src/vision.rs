@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use image::imageops::FilterType::Lanczos3;
+use fast_image_resize::{images::Image, FilterType, IntoImageView, PixelType, ResizeAlg, Resizer,};
 use image::{DynamicImage, GrayImage, ImageBuffer, Luma, Rgb, RgbaImage};
 use rustfft::num_complex::Complex;
 use rustfft::{FftDirection, FftPlanner};
@@ -29,6 +29,30 @@ static FFT_PLANNER: Mutex<Option<FftPlanner<f64>>> = Mutex::new(None);
 
 const BASE_WIDTH: f64 = 1280.;
 const BASE_HEIGHT: f64 = 720.;
+
+fn fast_resize(img: &DynamicImage, new_w: u32, new_h: u32, alg: ResizeAlg) -> DynamicImage {
+    let converted: DynamicImage;
+    let (src, pixel_type) = match img.pixel_type() {
+        Some(PixelType::U8x3) => (img, PixelType::U8x3),
+        Some(PixelType::U8x4) => (img, PixelType::U8x4),
+        _ => {
+            converted = DynamicImage::ImageRgb8(img.to_rgb8());
+            (&converted, PixelType::U8x3)
+        }
+    };
+    let mut dst = Image::new(new_w, new_h, pixel_type);
+    let mut resizer = Resizer::new();
+    let options = fast_image_resize::ResizeOptions::new().resize_alg(alg);
+    resizer.resize(src, &mut dst, Some(&options)).expect("resize 失败");
+    match pixel_type {
+        PixelType::U8x3 => DynamicImage::ImageRgb8(
+            ImageBuffer::from_raw(new_w, new_h, dst.into_vec()).expect("RGB 尺寸不匹配"),
+        ),
+        _ => DynamicImage::ImageRgba8(
+            RgbaImage::from_raw(new_w, new_h, dst.into_vec()).expect("RGBA 尺寸不匹配"),
+        ),
+    }
+}
 
 pub fn scale_coords(img_w: u32, img_h: u32, x: u32, y: u32) -> (u32, u32) {
     let scale_x = img_w as f64 / BASE_WIDTH;
@@ -221,7 +245,10 @@ pub fn load_assets(game: &str, scale_height: u32) -> Result<AssetMap> {
             let raw = image::open(&img_path)?;
             let w = (raw.width() as f64 * scale) as u32;
             let h = (raw.height() as f64 * scale) as u32;
-            img_cache.insert(path.clone(), raw.resize_exact(w, h, Lanczos3));
+            img_cache.insert(
+                path.clone(),
+                fast_resize(&raw, w, h, ResizeAlg::Convolution(FilterType::Lanczos3)),
+            );
         }
         let x = (ann["bbox"][0].as_f64().unwrap() * scale) as u32;
         let y = (ann["bbox"][1].as_f64().unwrap() * scale) as u32;
@@ -438,12 +465,12 @@ impl TemplateSet {
     }
 
     pub fn add_alpha_ref(&mut self, name: &str, file: &str, img: &RgbaImage) {
-        let resized = image::imageops::resize(
-            img,
+        let resized = fast_resize(
+            &DynamicImage::ImageRgba8(img.clone()),
             self.size,
             self.size,
-            image::imageops::FilterType::Triangle,
-        );
+            ResizeAlg::Convolution(FilterType::Bilinear),
+        ).to_rgba8();
         let mask = GrayImage::from_fn(self.size, self.size, |x, y| {
             Luma([if resized.get_pixel(x, y).0[3] > 128 { 255 } else { 0 }])
         });
@@ -468,9 +495,12 @@ impl TemplateSet {
             return None;
         }
         let crop = image::imageops::crop_imm(frame, x, y, w, h).to_image();
-        let q = DynamicImage::ImageRgb8(crop)
-            .resize_exact(self.size, self.size, image::imageops::FilterType::Triangle)
-            .to_rgba8();
+        let q = fast_resize(
+            &DynamicImage::ImageRgb8(crop),
+            self.size,
+            self.size,
+            ResizeAlg::Convolution(FilterType::Bilinear),
+        ).to_rgba8();
         let (_, var) = masked_gray_stats(&q, &self.query_mask);
         let qv = feature(&q, &self.query_mask);
 

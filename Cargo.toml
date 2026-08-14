@@ -14,7 +14,8 @@ serde_json = "1"
 vigem-client = "0"
 rhai = { version = "1", features = ["sync"] }
 ratatui = "0"
-windows-link = { version = "0", optional = true }
+fast_image_resize = { version = "6", default-features = false, features = ["image"] }
+ocr-rs = { path = "rust-paddle-ocr", optional = true }
 
 [[bin]]
 name = "obs64"
@@ -24,7 +25,7 @@ path = "src/main.rs"
 default = ["dna", "nte"]
 dna = []
 nte = ["ocr"]
-ocr = ["dep:windows-link"]
+ocr = ["dep:ocr-rs"]
 
 [profile.release]
 strip = true
