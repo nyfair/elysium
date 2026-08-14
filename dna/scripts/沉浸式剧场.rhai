@@ -14,7 +14,7 @@ fn task_ended(img) {
 
 fn check() {
     let img = shot();
-    if pixel_equal(img, 491, 85, 0, 0, 0) {
+    if pixel_like(img, 491, 85, 0, 0, 0, 5) {
         return 1
     } else if pixel_equal(img, 425, 78, 0, 0, 0) {
         return 0
@@ -49,7 +49,7 @@ for i in 0..5 {
     lstick();
 }
 
-run_combo("q1s5e1e1");
+run_combo("q1s3e1e1");
 let vitamin = 2;
 loop {
     if vitamin < 1 {

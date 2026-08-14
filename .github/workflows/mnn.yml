@@ -1,0 +1,36 @@
+name: mnn
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mnn:
+    runs-on: windows-latest
+    steps:
+    - uses: ilammy/msvc-dev-cmd@v1
+    - name: Compile
+      run: |
+        git clone --depth 1 https://github.com/zibo-chen/rust-paddle-ocr
+        move rust-paddle-ocr/cpp ./
+        gh release download -R alibaba/MNN --archive=zip
+        7z x *.zip -bse0
+        cd MNN*
+        mkdir build
+        cd build
+        cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DMNN_BUILD_SHARED_LIBS=OFF -DMNN_BUILD_TOOLS=OFF -DMNN_BUILD_MINI=ON -DCMAKE_C_FLAGS=/D_USE_STD_VECTOR_ALGORITHMS=0 -DCMAKE_CXX_FLAGS=/D_USE_STD_VECTOR_ALGORITHMS=0
+        cmake --build .
+        mkdir ../../lib
+        move *.lib ../../lib/
+        move ../include ../../
+        cd ../../
+        cargo install bindgen-cli
+        bindgen cpp/include/mnn_wrapper.h -o mnn_bindings.rs --allowlist-function "mnnr_.*" --allowlist-type "MNN.*" --allowlist-type "MNNR.*" --no-layout-tests -- -Iinclude -Icpp/include
+        7z a mnn_bindings.7z mnn_bindings.rs include lib
+    - name: Upload
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: mnn_bindings.7z
+        tag: latest
+        overwrite: true
+        file_glob: true
