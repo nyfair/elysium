@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::vision::{Vision, AssetMap, get_pixel, pixel_equal, pixel_like, ncc_match};
+use crate::vision::{Vision, AssetMap, get_pixel, ncc_match, pixel_equal, pixel_like, scale_roi};
 use crate::input::{Button, Gamepad};
 use crate::{Args, k};
 #[cfg(feature = "ocr")]
@@ -177,20 +177,21 @@ pub fn new_engine(
     engine.register_fn("shot", move || -> Frame {
         Arc::new(Mutex::new(v.shot().unwrap()))
     });
-    engine.register_fn(
-        "load_img",
-        |path: &str| -> Result<Frame, Box<rhai::EvalAltResult>> {
-            match image::open(path) {
-                Ok(img) => Ok(Arc::new(Mutex::new(img.to_rgb8()))),
-                Err(e) => Err(format!("load_img 失败：{e}").into()),
-            }
-        },
-    );
-    let v = vision.clone();
-    engine.register_fn("shot", move |path: &str| -> Frame {
-        let img = v.shot().unwrap();
-        img.save(path).unwrap();
-        Arc::new(Mutex::new(img))
+    engine.register_fn("load", |path: &str| -> Result<Frame, Box<rhai::EvalAltResult>> {
+        match image::open(path) {
+            Ok(img) => Ok(Arc::new(Mutex::new(img.to_rgb8()))),
+            Err(e) => Err(format!("load_img 失败：{e}").into()),
+        }
+    });
+    engine.register_fn("save", move |img: Frame, path: &str| {
+        let i = k!(img);
+        i.save(path).unwrap();
+    });
+    engine.register_fn("crop", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Frame {
+        let orig = k!(img);
+        let (rx, ry, rw, rh) = scale_roi(orig.width(), orig.height(), (x as u32, y as u32, w as u32, h as u32));
+        let crop = image::imageops::crop_imm(&*orig, rx as u32, ry as u32, rw as u32, rh as u32).to_image();
+        Arc::new(Mutex::new(crop))
     });
     engine.register_fn("get_pixel", move |img: Frame, x: i64, y: i64| -> Array {
         let p = get_pixel(&k!(img), x as u32, y as u32);
@@ -210,11 +211,11 @@ pub fn new_engine(
         vec![(x as i64).into(), (y as i64).into(), score.into()]
     });
     let a = assets.clone();
-    engine.register_fn("ncc_match", move |img: Frame, tplt: &str, roi_x: i64, roi_y: i64, roi_w: i64, roi_h: i64| -> Array {
+    engine.register_fn("ncc_match", move |img: Frame, tplt: &str, x: i64, y: i64, w: i64, h: i64| -> Array {
         let img = k!(img);
         let tpl = a.get(tplt).unwrap();
-        let roi = if roi_w > 0 && roi_h > 0 {
-            Some((roi_x as u32, roi_y as u32, roi_w as u32, roi_h as u32))
+        let roi = if w > 0 && h > 0 {
+            Some((x as u32, y as u32, w as u32, h as u32))
         } else {
             None
         };

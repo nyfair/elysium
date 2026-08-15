@@ -147,7 +147,6 @@ impl AvatarMatcher {
                 files.push(path);
             }
         }
-        files.sort();
         if files.is_empty() {
             bail!("未在 {AVATAR_DIR} 找到任何头像素材");
         }

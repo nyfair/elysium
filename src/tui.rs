@@ -166,7 +166,7 @@ impl App {
 }
 
 fn scan_tasks(game: &GameType) -> Vec<String> {
-    let mut tasks: Vec<String> = std::fs::read_dir(format!("{}/scripts", game.name()))
+    let tasks: Vec<String> = std::fs::read_dir(format!("{}/scripts", game.name()))
         .map(|rd| {
             rd.filter_map(|e| e.ok())
                 .filter_map(|e| {
@@ -180,7 +180,6 @@ fn scan_tasks(game: &GameType) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default();
-    tasks.sort();
     tasks
 }
 
