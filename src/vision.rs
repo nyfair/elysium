@@ -80,18 +80,28 @@ struct FrameBuf {
 
 static SHARED: Mutex<Option<Arc<Mutex<FrameBuf>>>> = Mutex::new(None);
 static EPOCH: AtomicU64 = AtomicU64::new(0);
-static CLIENT: Mutex<(u32, u32, u32, u32)> = Mutex::new((0, 0, 0, 0));
 
 struct VisionHandler {
     epoch: u64,
+    off_x: u32,
+    off_y: u32,
+    cw: u32,
+    ch: u32,
 }
 
 impl GraphicsCaptureApiHandler for VisionHandler {
-    type Flags = (i32, i32);
+    type Flags = (i32, i32, i32, i32);
     type Error = Box<dyn std::error::Error + Send + Sync>;
 
-    fn new(_ctx: windows_capture::capture::Context<(i32, i32)>) -> Result<Self, Self::Error> {
-        Ok(Self { epoch: EPOCH.load(Ordering::SeqCst) })
+    fn new(ctx: windows_capture::capture::Context<(i32, i32, i32, i32)>) -> Result<Self, Self::Error> {
+        let (off_x, off_y, cw, ch) = ctx.flags;
+        Ok(Self {
+            epoch: EPOCH.load(Ordering::SeqCst),
+            off_x: off_x.max(0) as u32,
+            off_y: off_y.max(0) as u32,
+            cw: cw.max(0) as u32,
+            ch: ch.max(0) as u32,
+        })
     }
 
     fn on_frame_arrived(
@@ -106,20 +116,32 @@ impl GraphicsCaptureApiHandler for VisionHandler {
         let fb = frame.buffer()?;
         let w = fb.width();
         let h = fb.height();
+        let (cw, ch, off_x, off_y) = if self.cw > 0
+            && self.ch > 0
+            && self.off_x + self.cw <= w
+            && self.off_y + self.ch <= h
+        {
+            (self.cw, self.ch, self.off_x, self.off_y)
+        } else {
+            (w, h, 0, 0)
+        };
         let mut raw = Vec::new();
         let bytes = fb.as_nopadding_buffer(&mut raw);
-        let len = (w as usize) * (h as usize) * 3;
-        let mut rgb = Vec::with_capacity(len);
-        for chunk in bytes.chunks_exact(4) {
-            rgb.push(chunk[0]);
-            rgb.push(chunk[1]);
-            rgb.push(chunk[2]);
+        let mut rgb = Vec::with_capacity((cw as usize) * (ch as usize) * 3);
+        for y in off_y..off_y + ch {
+            let row = (y * w + off_x) as usize;
+            for x in 0..cw {
+                let i = (row + x as usize) * 4;
+                rgb.push(bytes[i]);
+                rgb.push(bytes[i + 1]);
+                rgb.push(bytes[i + 2]);
+            }
         }
         if let Some(buf) = k!(SHARED).as_ref() {
             let mut f = k!(buf);
             f.rgb = rgb;
-            f.width = w;
-            f.height = h;
+            f.width = cw;
+            f.height = ch;
         }
         Ok(())
     }
@@ -159,7 +181,6 @@ impl Vision {
         let off_y = (origin.y - win_rect.top).max(0) as u32;
         let cw = (client_rect.right - client_rect.left) as u32;
         let ch = (client_rect.bottom - client_rect.top) as u32;
-        *k!(CLIENT) = (off_x, off_y, cw, ch);
         let buffer = Arc::new(Mutex::new(FrameBuf { rgb: Vec::new(), width: 0, height: 0 }));
         let b = buffer.clone();
         *k!(SHARED) = Some(buffer);
@@ -171,7 +192,7 @@ impl Vision {
             MinimumUpdateIntervalSettings::Default,
             DirtyRegionSettings::Default,
             ColorFormat::Rgba8,
-            (cw as i32, ch as i32),
+            (off_x as i32, off_y as i32, cw as i32, ch as i32),
         );
         thread::Builder::new()
             .name("capture".into())
