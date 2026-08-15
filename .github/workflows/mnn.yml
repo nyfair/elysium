@@ -15,6 +15,7 @@ jobs:
         gh release download -R alibaba/MNN --archive=zip
         7z x *.zip -bse0
         cd MNN*
+        sed -i '/The device supports/,+1d' source/backend/cpu/CPURuntime.cpp
         mkdir build
         cd build
         cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DMNN_BUILD_SHARED_LIBS=OFF -DMNN_BUILD_TOOLS=OFF -DCMAKE_C_FLAGS=/D_USE_STD_VECTOR_ALGORITHMS=0 -DCMAKE_CXX_FLAGS=/D_USE_STD_VECTOR_ALGORITHMS=0

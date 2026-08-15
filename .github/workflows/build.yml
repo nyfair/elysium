@@ -10,6 +10,8 @@ jobs:
     - name: Prepare
       run: git config --global core.autocrlf false
     - uses: actions/checkout@v6
+      with:
+        submodules: recursive
     - name: Setup UPX
       uses: crazy-max/ghaction-upx@v4
       with:
@@ -17,6 +19,8 @@ jobs:
         version: latest
     - name: Compile
       run: |
+        curl -OL https://github.com/nyfair/elysium/releases/download/latest/mnn_bindings.7z
+        7z x mnn_bindings.7z -o"rust-paddle-ocr" -aoa
         rustup set profile minimal
         rustup update
         cargo build --release

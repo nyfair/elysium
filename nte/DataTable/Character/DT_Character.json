@@ -121,6 +121,18 @@
         },
         "PlayerViewTagArray": ["生存", "护盾", "持续伤害"]
       },
+      "1036": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_canhong"
+        },
+        "ItemName": {
+          "SourceString": "残虹"
+        },
+        "ElementData": {
+          "CharacterElementType": "咒"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出", "持续伤害", "追加攻击"]
+      },
       "1039": {
         "ItemIconBig": {
           "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_027"
@@ -181,18 +193,6 @@
         },
         "PlayerViewTagArray": ["输出", "爆发输出", "控制"]
       },
-      "1056": {
-        "ItemIconBig": {
-          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_004"
-        },
-        "ItemName": {
-          "SourceString": "安魂曲"
-        },
-        "ElementData": {
-          "CharacterElementType": "暗"
-        },
-        "PlayerViewTagArray": ["输出", "主力输出", "持续伤害"]
-      },
       "1070": {
         "ItemIconBig": {
           "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_haiyue"
@@ -216,6 +216,18 @@
           "CharacterElementType": "相"
         },
         "PlayerViewTagArray": ["输出", "主力输出"]
+      },
+      "1072": {
+        "ItemIconBig": {
+          "AssetPathName": "UI_Icon/AvatarImage/CustomAvatar/256/player_lingke"
+        },
+        "ItemName": {
+          "SourceString": "灵可"
+        },
+        "ElementData": {
+          "CharacterElementType": "灵"
+        },
+        "PlayerViewTagArray": ["输出", "爆发输出", "追加攻击"]
       },
       "1073": {
         "ItemIconBig": {
