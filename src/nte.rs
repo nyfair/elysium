@@ -2,7 +2,6 @@ use anyhow::{bail, Context, Result};
 use image::{ImageBuffer, Rgb};
 use rhai::{Array, Dynamic, Engine, Scope, AST};
 use std::collections::{HashMap, HashSet};
-use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -27,52 +26,12 @@ pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
     (1162, 397, 64, 64),
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Element {
-    Unknown,
-    Cosmos,
-    Nature,
-    Incantation,
-    Chaos,
-    Psyche,
-    Lakshana,
-}
-
-impl FromStr for Element {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "光" => Ok(Self::Cosmos),
-            "灵" => Ok(Self::Nature),
-            "咒" => Ok(Self::Incantation),
-            "暗" => Ok(Self::Chaos),
-            "魂" => Ok(Self::Psyche),
-            "相" => Ok(Self::Lakshana),
-            _ => Err(()),
-        }
-    }
-}
-
-impl Element {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Unknown => "",
-            Self::Cosmos => "光",
-            Self::Nature => "灵",
-            Self::Incantation => "咒",
-            Self::Chaos => "暗",
-            Self::Psyche => "魂",
-            Self::Lakshana => "相",
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Character {
     pub name: String,
     pub asset_name: String,
     pub tag: Vec<String>,
-    pub element: Element,
+    pub element: u8,
     pub debug_info: Option<String>,
 }
 
@@ -82,9 +41,33 @@ impl Default for Character {
             name: String::new(),
             asset_name: String::new(),
             tag: Vec::new(),
-            element: Element::Unknown,
+            element: 0,
             debug_info: None,
         }
+    }
+}
+
+fn parse_element(s: &str) -> Option<u8> {
+    match s {
+        "光" => Some(1),
+        "灵" => Some(2),
+        "咒" => Some(3),
+        "暗" => Some(4),
+        "魂" => Some(5),
+        "相" => Some(6),
+        _ => None,
+    }
+}
+
+fn element_name(e: u8) -> &'static str {
+    match e {
+        1 => "光",
+        2 => "灵",
+        3 => "咒",
+        4 => "暗",
+        5 => "魂",
+        6 => "相",
+        _ => "",
     }
 }
 
@@ -114,8 +97,9 @@ pub fn load_characters() -> Result<Vec<Character>> {
         let element_str = info["ElementData"]["CharacterElementType"]
             .as_str()
             .context("缺少 ElementData.CharacterElementType")?;
-        let element = Element::from_str(element_str)
-            .map_err(|_| anyhow::anyhow!("未知元素类型：{element_str}（角色 {name}）"))?;
+        let element = parse_element(element_str)
+            .map(|e| e as u8)
+            .ok_or_else(|| anyhow::anyhow!("未知元素类型：{element_str}（角色 {name}）"))?;
         let tag = info["PlayerViewTagArray"]
             .as_array()
             .map(|a| a.iter().filter_map(|t| t.as_str().map(String::from)).collect())
@@ -327,7 +311,7 @@ pub fn setup_engine(
     engine.register_fn("tag", |c: &mut Character| -> Array {
         c.tag.iter().map(|t| t.into()).collect()
     });
-    engine.register_fn("element", |c: &mut Character| c.element.as_str().to_string());
+    engine.register_fn("element", |c: &mut Character| element_name(c.element).to_string());
     engine.register_fn("debug_info", |c: &mut Character| {
         c.debug_info.clone().unwrap_or_default()
     });
