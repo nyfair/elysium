@@ -10,7 +10,7 @@ use std::time::Instant;
 use crate::input::*;
 use crate::ocr::Ocr;
 use crate::script_engine::{sleep, Frame, TaskState, STOP};
-use crate::vision::{MatchReport, TemplateSet, Vision};
+use crate::vision::{pixel_like, MatchReport, TemplateSet, Vision};
 use crate::worker;
 use crate::k;
 
@@ -30,24 +30,24 @@ pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Element {
     Unknown,
+    Cosmos,
+    Nature,
     Incantation,
     Chaos,
-    Lakshana,
-    Nature,
     Psyche,
-    Cosmos,
+    Lakshana,
 }
 
 impl FromStr for Element {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "光" => Ok(Self::Cosmos),
+            "灵" => Ok(Self::Nature),
             "咒" => Ok(Self::Incantation),
             "暗" => Ok(Self::Chaos),
-            "相" => Ok(Self::Lakshana),
-            "灵" => Ok(Self::Nature),
             "魂" => Ok(Self::Psyche),
-            "光" => Ok(Self::Cosmos),
+            "相" => Ok(Self::Lakshana),
             _ => Err(()),
         }
     }
@@ -57,12 +57,12 @@ impl Element {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Unknown => "",
+            Self::Cosmos => "光",
+            Self::Nature => "灵",
             Self::Incantation => "咒",
             Self::Chaos => "暗",
-            Self::Lakshana => "相",
-            Self::Nature => "灵",
             Self::Psyche => "魂",
-            Self::Cosmos => "光",
+            Self::Lakshana => "相",
         }
     }
 }
@@ -234,8 +234,6 @@ pub fn load_tp() -> Result<TpData> {
     Ok(TpData { areas, points })
 }
 
-const AREA_ROI: (u32, u32, u32, u32) = (974, 132, 200, 30);
-
 fn travel(
     vision: &Vision,
     ocr: &Ocr,
@@ -263,7 +261,7 @@ fn travel(
             return false;
         }
     };
-    let lines = match ocr.recognize_roi(&img, AREA_ROI) {
+    let lines = match ocr.recognize_roi(&img, (974, 132, 200, 30)) {
         Ok(l) => l,
         Err(e) => {
             eprintln!("travel: 区域识别失败：{e}");
@@ -300,8 +298,19 @@ fn travel(
     k!(pad).click(A, 0.3, 0.2);
     k!(pad).click(A, 0.3, 0.2);
     k!(pad).click(A, 0.3, 0.2);
-    k!(pad).click(A, 0.5, 0.);
-    true
+    k!(pad).click(A, 0.5, 4.);
+
+    for _ in 0..200 {
+        let img = vision.shot().unwrap();
+        if pixel_like(&img, 32, 134, 255, 255, 255, 15) &&
+            pixel_like(&img, 902, 37, 255, 255, 255, 15) &&
+            pixel_like(&img, 1182, 37, 255, 255, 255, 15) &&
+            !pixel_like(&img, 26, 134, 255, 255, 255, 15) {
+            return true
+        }
+        sleep(0.1);
+    }
+    false
 }
 
 pub fn setup_engine(
@@ -364,6 +373,7 @@ pub fn setup_engine(
             travel(&v, &o, &p, &t, area, type_idx, index)
         },
     );
+    k!(pad).click(LB, 0.033, 0.);
 }
 
 pub fn run(
