@@ -73,8 +73,8 @@ impl GameType {
 pub struct Args {
     pub game: Option<GameType>,
     pub task: Option<String>,
-    #[arg(short = 'p', long, default_value = "")]
-    pub plan: String,
+    #[arg(short = 'p', long, num_args = 1..)]
+    pub plan: Vec<String>,
     #[arg(short = 'b', long, default_value = "0")]
     pub boost: u32,
     #[arg(short = 's', long, default_value = "")]
@@ -139,6 +139,9 @@ fn main() -> Result<()> {
     let Some(game) = args.game.clone() else {
         return tui::run(&args);
     };
+    if !args.plan.is_empty() {
+        return run_plan(&args, game);
+    }
     let Some(task) = &args.task else {
         bail!("缺少任务参数（示例：elysium dna 通用任务）");
     };
@@ -163,7 +166,16 @@ fn main() -> Result<()> {
     run_cli(&args, game, task)
 }
 
-fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
+struct CliResources {
+    game: GameType,
+    vision: Arc<vision::Vision>,
+    pad: Arc<Mutex<input::Gamepad>>,
+    state: Arc<TaskState>,
+    engine: Arc<rhai::Engine>,
+    log: Arc<dyn Fn(&str) + Send + Sync>,
+}
+
+fn init_cli(game: GameType) -> Result<CliResources> {
     let window = Window::from_contains_name(game.title())
         .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{}", e))?;
     vision::activate_window(&window);
@@ -184,8 +196,6 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     let l = log.clone();
     engine.on_print(move |msg: &str| l(msg));
 
-    let script = std::fs::read_to_string(script_path(game.name(), task))
-        .map_err(|e| anyhow::anyhow!("找不到任务脚本：{e}"))?;
     match game {
         #[cfg(feature = "dna")]
         GameType::Dna => {
@@ -196,43 +206,96 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
             nte::setup_engine(&mut engine, &pad, &state, &vision, &ocr);
         }
     }
-    let exit = Arc::new(AtomicBool::new(false));
-    let reset = Arc::new(AtomicBool::new(false));
+    Ok(CliResources {
+        game,
+        vision,
+        pad,
+        state,
+        engine: Arc::new(engine),
+        log,
+    })
+}
+
+fn run_task(res: &CliResources, args: &Args, task: &str) -> Result<()> {
+    let script = std::fs::read_to_string(script_path(res.game.name(), task))
+        .map_err(|e| anyhow::anyhow!("找不到任务脚本：{e}"))?;
     let meta = script_engine::ScriptMeta::parse(&script);
-    let ast = Arc::new(engine.compile(&script)?);
+    let ast = Arc::new(res.engine.compile(&script)?);
     let timeout = if args.timeout > 0 {
         Duration::from_secs(args.timeout)
     } else {
         Duration::from_secs(meta.timeout)
     };
     let scope = Arc::new(script_engine::init_scope(args));
-
-    match game {
+    *k!(&res.state.pause) = false;
+    *k!(&res.state.cur_turn) = 1;
+    let exit = Arc::new(AtomicBool::new(false));
+    let reset = Arc::new(AtomicBool::new(false));
+    println!("开始任务：{task}");
+    match res.game {
         #[cfg(feature = "dna")]
         GameType::Dna => dna::run(
-            Arc::new(engine),
+            res.engine.clone(),
             ast,
             scope,
-            &state,
+            &res.state,
             exit,
             reset,
             timeout,
-            log,
-            vision,
-            pad,
+            res.log.clone(),
+            res.vision.clone(),
+            res.pad.clone(),
             meta.r#loop,
         )?,
         #[cfg(feature = "nte")]
         GameType::Nte => nte::run(
-            Arc::new(engine),
+            res.engine.clone(),
             ast,
             scope,
-            &state,
+            &res.state,
             exit,
             reset,
             timeout,
-            log,
+            res.log.clone(),
         )?,
+    }
+    println!("任务完成：{task}");
+    Ok(())
+}
+
+fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
+    let res = init_cli(game)?;
+    run_task(&res, args, task)
+}
+
+fn run_plan(args: &Args, game: GameType) -> Result<()> {
+    let res = init_cli(game)?;
+    for item in &args.plan {
+        let (task, params) = match item.split_once(':') {
+            Some((t, p)) => (t, p),
+            None => (item.as_str(), ""),
+        };
+        if task.is_empty() {
+            bail!("计划项格式错误：{item}");
+        }
+        let mut task_args = args.clone();
+        for kv in params.split(',') {
+            if kv.is_empty() {
+                continue;
+            }
+            let Some((k, v)) = kv.split_once('=') else {
+                bail!("计划项参数格式错误：{kv}（示例：任务A:b=3,t=20）");
+            };
+            match k {
+                "b" => task_args.boost = v.parse().context("boost 必须是数字")?,
+                "s" => task_args.strategy = v.to_string(),
+                "c" => task_args.combo = v.to_string(),
+                "t" => task_args.turn = v.parse().context("turn 必须是数字")?,
+                "o" => task_args.timeout = v.parse().context("timeout 必须是数字")?,
+                _ => bail!("未知参数：{k}（可用 b/s/c/t/o）"),
+            }
+        }
+        run_task(&res, &task_args, task)?;
     }
     Ok(())
 }
