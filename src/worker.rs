@@ -216,7 +216,7 @@ fn run_inner(
 ) -> Result<()> {
     let resources = init_resources(game.clone(), shared, state)?;
     let game_name = game.name();
-    let script = std::fs::read_to_string(format!("{game_name}/scripts/{task}.rhai"))
+    let script = std::fs::read_to_string(crate::script_path(game_name, &task))
         .map_err(|e| anyhow::anyhow!("找不到任务脚本：{e}"))?;
     let meta = ScriptMeta::parse(&script);
     let ast = Arc::new(resources.engine.compile(&script)?);

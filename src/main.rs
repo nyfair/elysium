@@ -73,6 +73,8 @@ impl GameType {
 pub struct Args {
     pub game: Option<GameType>,
     pub task: Option<String>,
+    #[arg(short = 'p', long, default_value = "")]
+    pub plan: String,
     #[arg(short = 'b', long, default_value = "0")]
     pub boost: u32,
     #[arg(short = 's', long, default_value = "")]
@@ -182,9 +184,8 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     let l = log.clone();
     engine.on_print(move |msg: &str| l(msg));
 
-    let script = std::fs::read_to_string(format!("{}/scripts/{}.rhai", game.name(), task))
+    let script = std::fs::read_to_string(script_path(game.name(), task))
         .map_err(|e| anyhow::anyhow!("找不到任务脚本：{e}"))?;
-    let state = Arc::new(script_engine::TaskState::default());
     match game {
         #[cfg(feature = "dna")]
         GameType::Dna => {
@@ -234,4 +235,13 @@ fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
         )?,
     }
     Ok(())
+}
+
+fn script_path(game: &str, task: &str) -> std::path::PathBuf {
+    let custom = std::path::Path::new(&format!("user-{game}-scripts")).join(format!("{task}.rhai"));
+    if custom.is_file() {
+        custom
+    } else {
+        std::path::Path::new(game).join("scripts").join(format!("{task}.rhai"))
+    }
 }

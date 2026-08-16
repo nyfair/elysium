@@ -147,7 +147,7 @@ impl App {
             .tasks
             .get(self.selected_task)
             .and_then(|t| {
-                std::fs::read_to_string(format!("{}/scripts/{}.rhai", self.selected_game().name(), t)).ok()
+                std::fs::read_to_string(crate::script_path(self.selected_game().name(), t)).ok()
             })
             .map(|s| script_engine::ScriptMeta::parse(&s));
     }
@@ -156,6 +156,7 @@ impl App {
         Args {
             game: Some(self.selected_game()),
             task: self.tasks.get(self.selected_task).cloned(),
+            plan: "".to_string(),
             boost: self.boost.parse().unwrap_or(0),
             turn: self.turn.parse().unwrap_or(99),
             timeout: self.timeout.parse().unwrap_or(0),
@@ -166,20 +167,21 @@ impl App {
 }
 
 fn scan_tasks(game: &GameType) -> Vec<String> {
-    let tasks: Vec<String> = std::fs::read_dir(format!("{}/scripts", game.name()))
-        .map(|rd| {
-            rd.filter_map(|e| e.ok())
-                .filter_map(|e| {
-                    let p = e.path();
-                    if p.extension().map(|x| x == "rhai").unwrap_or(false) {
-                        p.file_stem().map(|s| s.to_string_lossy().into_owned())
-                    } else {
-                        None
+    let mut tasks = Vec::new();
+    for dir in [format!("{}/scripts", game.name()), format!("user-{}-scripts", game.name())] {
+        if let Ok(rd) = std::fs::read_dir(dir) {
+            for e in rd.filter_map(|e| e.ok()) {
+                let p = e.path();
+                if p.extension().map(|x| x == "rhai").unwrap_or(false) {
+                    if let Some(s) = p.file_stem().map(|s| s.to_string_lossy().into_owned()) {
+                        if !tasks.contains(&s) {
+                            tasks.push(s);
+                        }
                     }
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+                }
+            }
+        }
+    }
     tasks
 }
 
@@ -276,6 +278,7 @@ fn handle_custom_key(app: &mut App, key: KeyEvent) {
         KeyCode::Backspace => {
             app.custom_script.pop();
         }
+        KeyCode::F(6) => app.custom_script.clear(),
         KeyCode::Char(c) => app.custom_script.push(c),
         _ => {}
     }
@@ -565,7 +568,7 @@ fn draw_custom(f: &mut Frame, app: &App) {
         .wrap(Wrap { trim: false });
     f.render_widget(p, chunks[0]);
 
-    let hint = Paragraph::new(" 输入脚本后 F5 执行    Esc 返回 ")
+    let hint = Paragraph::new(" 输入脚本后 F5 执行    F6 清空    Esc 返回 ")
         .style(Style::default().fg(MUTED));
     f.render_widget(hint, chunks[1]);
 }
