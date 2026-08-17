@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use crate::input::*;
 use crate::script_engine::{sleep, Frame, TaskState, StopReason, STOP};
-use crate::vision::{Vision, pixel_equal};
+use crate::vision::{Vision, pixel_like};
 use crate::worker;
 use crate::k;
 
@@ -144,23 +144,23 @@ pub fn task_ended(img: Frame) -> Result<bool> {
     let img = &*k!(img);
     Ok(
         (
-            pixel_equal(img, 879, 654, 0, 0, 0) ||
-            pixel_equal(img, 880, 654, 0, 0, 0) ||
-            pixel_equal(img, 881, 654, 0, 0, 0)
+            pixel_like(img, 879, 654, 0, 0, 0, 5) ||
+            pixel_like(img, 880, 654, 0, 0, 0, 5) ||
+            pixel_like(img, 881, 654, 0, 0, 0, 5)
         ) && (
-            pixel_equal(img, 1123, 654, 0, 0, 0) ||
-            pixel_equal(img, 1124, 654, 0, 0, 0) ||
-            pixel_equal(img, 1125, 654, 0, 0, 0)
-        ) && !pixel_equal(img, 900, 681, 0, 0, 0)
+            pixel_like(img, 1123, 654, 0, 0, 0, 5) ||
+            pixel_like(img, 1124, 654, 0, 0, 0, 5) ||
+            pixel_like(img, 1125, 654, 0, 0, 0, 5)
+        ) && !pixel_like(img, 900, 681, 0, 0, 0, 5)
     )
 }
 
 pub fn task_started(img: Frame) -> Result<bool> {
     let img = &*k!(img);
     Ok(
-        pixel_equal(img, 99, 695, 255, 255, 255) &&
-        pixel_equal(img, 241, 695, 255, 255, 255) &&
-        !pixel_equal(img, 99, 689, 255, 255, 255)
+        pixel_like(img, 115, 695, 255, 255, 255, 5) &&
+        pixel_like(img, 225, 695, 255, 255, 255, 5) &&
+        !pixel_like(img, 115, 689, 255, 255, 255, 5)
     )
 }
 
