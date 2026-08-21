@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+﻿use anyhow::{Context, Result};
 use rhai::{AST, Engine, Scope};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -258,6 +258,7 @@ fn run_inner(
     if let Err(e) = result {
         SharedState::push_log(shared, format!("任务出错：{e:#}"));
     }
+    crate::audio::disable_all();
     resources.vision.stop();
     k!(shared).running = false;
     SharedState::push_log(shared, "任务已停止".into());
@@ -294,6 +295,7 @@ fn run_custom_inner(
     }
     let _ = handle.join();
     STOP.store(false, Ordering::SeqCst);
+    crate::audio::disable_all();
     resources.vision.stop();
     k!(shared).running = false;
     SharedState::push_log(shared, "脚本执行结束".into());

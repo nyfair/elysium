@@ -26,17 +26,17 @@ jobs:
         cargo build --release
         move target\release\*.exe .
         upx --ultra-brute *.exe
-        7z a elysium-full.7z *.exe dna nte *.md
+        7z a elysium-full.7z *.exe dna nte *.md user*
         cargo build --release --no-default-features --features dna
         del *.exe
         move target\release\*.exe .
         upx --ultra-brute *.exe
-        7z a elysium-dna.7z *.exe dna *.md
+        7z a elysium-dna.7z *.exe dna *.md user-dna-scripts
         cargo build --release --no-default-features --features nte
         del *.exe
         move target\release\*.exe .
         upx --ultra-brute *.exe
-        7z a elysium-nte.7z *.exe nte *.md
+        7z a elysium-nte.7z *.exe nte *.md user-nte-scripts
     - name: Upload
       uses: svenstaro/upload-release-action@v2
       with:

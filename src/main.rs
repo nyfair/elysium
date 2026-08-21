@@ -3,6 +3,7 @@ mod input;
 mod script_engine;
 mod worker;
 mod tui;
+mod audio;
 #[cfg(feature = "dna")]
 mod dna;
 #[cfg(feature = "nte")]
@@ -259,6 +260,7 @@ fn run_task(res: &CliResources, args: &Args, task: &str) -> Result<()> {
             res.log.clone(),
         )?,
     }
+        crate::audio::disable_all();
     println!("任务完成：{task}");
     Ok(())
 }

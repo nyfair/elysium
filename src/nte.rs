@@ -3,6 +3,7 @@ use image::{ImageBuffer, Rgb};
 use rhai::{Array, Dynamic, Engine, Scope, AST};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -25,6 +26,31 @@ pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
     (1162, 309, 64, 64),
     (1162, 397, 64, 64),
 ];
+
+const SOUND_DIR: &str = "nte/sounds";
+const DODGE_THRESHOLD: f64 = 0.08;
+const DODGE_DELAY: f64 = 0.;
+const DODGE_COOLDOWN: f64 = 0.55;
+const COUNTER_THRESHOLD: f64 = 0.05;
+const COUNTER_DELAY: f64 = 0.1;
+const COUNTER_COOLDOWN: f64 = 1.0;
+
+static DODGE_ENABLED: LazyLock<Arc<AtomicBool>> = LazyLock::new(|| Arc::new(AtomicBool::new(false)));
+static COUNTER_ENABLED: LazyLock<Arc<AtomicBool>> = LazyLock::new(|| Arc::new(AtomicBool::new(false)));
+
+fn dodge_action() -> crate::audio::Action {
+    Arc::new(|pad| {
+        k!(pad).click(RB, 0.0334, 0.0334);
+        k!(pad).click(RB, 0.2, 0.);
+    })
+}
+
+fn counter_action() -> crate::audio::Action {
+    Arc::new(|pad| {
+        k!(pad).click(RB, 0.0334, 0.0334);
+        k!(pad).click(X, 0.2, 0.);
+    })
+}
 
 #[derive(Debug, Clone)]
 pub struct Character {
@@ -315,6 +341,35 @@ pub fn setup_engine(
     engine.register_fn("debug_info", |c: &mut Character| {
         c.debug_info.clone().unwrap_or_default()
     });
+    crate::audio::ensure_started(
+        pad.clone(),
+        vec![
+            crate::audio::TemplateConfig {
+                name: "dodge",
+                path: format!("{SOUND_DIR}/dodge.wav").into(),
+                threshold: DODGE_THRESHOLD,
+                delay: DODGE_DELAY,
+                cooldown: DODGE_COOLDOWN,
+                action: dodge_action(),
+                enabled: DODGE_ENABLED.clone(),
+            },
+            crate::audio::TemplateConfig {
+                name: "counter",
+                path: format!("{SOUND_DIR}/counter.wav").into(),
+                threshold: COUNTER_THRESHOLD,
+                delay: COUNTER_DELAY,
+                cooldown: COUNTER_COOLDOWN,
+                action: counter_action(),
+                enabled: COUNTER_ENABLED.clone(),
+            },
+        ],
+    );
+    engine.register_fn("set_dodge", |on: bool| DODGE_ENABLED.store(on, Ordering::SeqCst));
+    engine.register_fn("get_dodge", || -> bool { DODGE_ENABLED.load(Ordering::SeqCst) });
+    engine.register_fn("set_counter", |on: bool| {
+        COUNTER_ENABLED.store(on, Ordering::SeqCst)
+    });
+    engine.register_fn("get_counter", || -> bool { COUNTER_ENABLED.load(Ordering::SeqCst) });
 
     let m = matcher.clone();
     engine.register_fn("get_team", move |img: Frame| -> Array {
@@ -357,7 +412,7 @@ pub fn setup_engine(
             travel(&v, &o, &p, &t, area, type_idx, index)
         },
     );
-    k!(pad).click(LB, 0.033, 0.);
+    k!(pad).click(LB, 0.0334, 0.);
 }
 
 pub fn run(
