@@ -27,10 +27,10 @@ pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
 ];
 
 const SOUND_DIR: &str = "nte/sounds";
-const DODGE_THRESHOLD: f64 = 0.08;
+const DODGE_THRESHOLD: f64 = 0.16;
 const DODGE_DELAY: f64 = 0.;
 const DODGE_COOLDOWN: f64 = 0.55;
-const COUNTER_THRESHOLD: f64 = 0.05;
+const COUNTER_THRESHOLD: f64 = 0.35;
 const COUNTER_DELAY: f64 = 0.1;
 const COUNTER_COOLDOWN: f64 = 1.0;
 
@@ -43,7 +43,7 @@ fn dodge_action() -> crate::audio::Action {
 
 fn counter_action() -> crate::audio::Action {
     Arc::new(|pad| {
-        k!(pad).click(RB, 0.0334, 0.0334);
+        k!(pad).click(X, 0.0334, 0.0334);
         k!(pad).click(X, 0.2, 0.);
     })
 }

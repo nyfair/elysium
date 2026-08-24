@@ -81,7 +81,6 @@ fn peak_of(prod: &[Complex<f32>], im: bool, n: usize, tmpl_len: usize, denom: us
 const FRAME_STEP_SECS: f64 = 0.05;
 const POLL_MILLIS: u64 = 5;
 const WORK_RATE: u32 = 32000;
-const DEBUG_SCORES: bool = true;
 
 static SWITCHES: Mutex<Vec<(String, bool)>> = Mutex::new(Vec::new());
 static MONITOR: Mutex<Option<Arc<AtomicBool>>> = Mutex::new(None);
@@ -89,19 +88,17 @@ static SNAPSHOT: Mutex<Option<(Arc<Mutex<Gamepad>>, Vec<TemplateConfig>)>> = Mut
 static REBUILD: AtomicBool = AtomicBool::new(false);
 
 pub fn set_switch(name: &str, on: bool) {
-    {
-        let mut sw = k!(SWITCHES);
-        if let Some(v) = sw.iter_mut().find(|(n, _)| n == name) {
-            v.1 = on;
-        } else {
-            sw.push((name.to_owned(), on));
-        }
+    let mut sw = k!(SWITCHES);
+    if let Some(v) = sw.iter_mut().find(|(n, _)| n == name) {
+        v.1 = on;
+    } else {
+        sw.push((name.to_owned(), on));
     }
     if on {
         if k!(MONITOR).is_some() {
             REBUILD.store(true, Ordering::SeqCst);
         }
-        maybe_spawn();
+        spawn();
     }
 }
 
@@ -120,10 +117,10 @@ pub fn disable_all() {
             *v = false;
         }
     }
-    maybe_stop();
+    stop();
 }
 
-fn maybe_spawn() {
+fn spawn() {
     let alive = k!(MONITOR)
         .as_ref()
         .map(|s| !s.load(Ordering::SeqCst))
@@ -145,7 +142,7 @@ fn maybe_spawn() {
         });
 }
 
-fn maybe_stop() {
+fn stop() {
     let any_on = k!(SWITCHES).iter().any(|(_, v)| *v);
     if !any_on && let Some(s) = k!(MONITOR).as_ref() {
         s.store(true, Ordering::SeqCst);
@@ -245,10 +242,7 @@ fn listen(
 
     let mut buf: Vec<f32> = Vec::new();
     let mut pending: Vec<f32> = Vec::new();
-    let mut since_calc = 0usize;
-    let mut busy = Duration::ZERO;
-    let mut hops = 0u64;
-    let mut last_report = Instant::now();
+    let mut since_calc = 0;
     loop {
         if stop.load(Ordering::SeqCst) {
             unsafe {
@@ -262,8 +256,8 @@ fn listen(
             continue;
         }
         let mut data_ptr: *mut u8 = std::ptr::null_mut();
-        let mut frames = 0u32;
-        let mut flags = 0u32;
+        let mut frames = 0;
+        let mut flags = 0;
         unsafe {
             capture.GetBuffer(&mut data_ptr, &mut frames, &mut flags, None, None)?;
         }
@@ -280,10 +274,9 @@ fn listen(
             continue;
         }
         since_calc = 0;
-        let t0 = Instant::now();
         active.clear();
         for (i, t) in prepared.iter().enumerate() {
-            if DEBUG_SCORES || get_switch(t.name) {
+            if get_switch(t.name) {
                 active.push(i);
             } else {
                 scores[i] = 0.;
@@ -321,24 +314,6 @@ fn listen(
                 inverse.process(&mut prod_a);
                 scores[pair[0]] = peak_of(&prod_a, false, n_common, m0.tmpl_len, denom);
             }
-        }
-        if DEBUG_SCORES {
-            let s = scores.iter().map(|v| format!("{v:.4}")).collect::<Vec<_>>().join(" ");
-            eprintln!("scores: {s}");
-        }
-        busy += t0.elapsed();
-        hops += 1;
-        let elapsed = last_report.elapsed();
-        if elapsed.as_secs_f64() >= 5. {
-            eprintln!(
-                "audio: {} hops/5s, busy {:.2} ms/s ({:.2}% core)",
-                hops,
-                busy.as_secs_f64() * 1000. / elapsed.as_secs_f64(),
-                busy.as_secs_f64() / elapsed.as_secs_f64() * 100.
-            );
-            hops = 0;
-            busy = Duration::ZERO;
-            last_report = Instant::now();
         }
         for (i, t) in prepared.iter().enumerate() {
             let ready = last_fire[i]
@@ -430,7 +405,7 @@ fn open_loopback() -> anyhow::Result<(IAudioClient, IAudioCaptureClient, MixForm
 fn decode_into(bytes: &[u8], frames: usize, channels: usize, is_float: bool, bps: usize, out: &mut Vec<f32>) {
     out.clear();
     for f in 0..frames {
-        let mut sum = 0f32;
+        let mut sum = 0.;
         for c in 0..channels {
             let off = (f * channels + c) * bps;
             let v = match (is_float, bps) {
@@ -449,7 +424,7 @@ fn load_wav(path: &std::path::Path) -> anyhow::Result<(Vec<f32>, u32)> {
     if &raw[0..4] != b"RIFF" || &raw[8..12] != b"WAVE" {
         anyhow::bail!("不是 WAV 文件");
     }
-    let mut pos = 12usize;
+    let mut pos = 12;
     let mut fmt: Option<(u16, u16, u32, u16)> = None;
     let mut data: Option<&[u8]> = None;
     while pos + 8 <= raw.len() {
