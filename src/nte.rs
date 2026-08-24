@@ -3,7 +3,6 @@ use image::{ImageBuffer, Rgb};
 use rhai::{Array, Dynamic, Engine, Scope, AST};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -34,9 +33,6 @@ const DODGE_COOLDOWN: f64 = 0.55;
 const COUNTER_THRESHOLD: f64 = 0.05;
 const COUNTER_DELAY: f64 = 0.1;
 const COUNTER_COOLDOWN: f64 = 1.0;
-
-static DODGE_ENABLED: LazyLock<Arc<AtomicBool>> = LazyLock::new(|| Arc::new(AtomicBool::new(false)));
-static COUNTER_ENABLED: LazyLock<Arc<AtomicBool>> = LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 
 fn dodge_action() -> crate::audio::Action {
     Arc::new(|pad| {
@@ -351,7 +347,6 @@ pub fn setup_engine(
                 delay: DODGE_DELAY,
                 cooldown: DODGE_COOLDOWN,
                 action: dodge_action(),
-                enabled: DODGE_ENABLED.clone(),
             },
             crate::audio::TemplateConfig {
                 name: "counter",
@@ -360,16 +355,17 @@ pub fn setup_engine(
                 delay: COUNTER_DELAY,
                 cooldown: COUNTER_COOLDOWN,
                 action: counter_action(),
-                enabled: COUNTER_ENABLED.clone(),
             },
         ],
     );
-    engine.register_fn("set_dodge", |on: bool| DODGE_ENABLED.store(on, Ordering::SeqCst));
-    engine.register_fn("get_dodge", || -> bool { DODGE_ENABLED.load(Ordering::SeqCst) });
+    engine.register_fn("set_dodge", |on: bool| crate::audio::set_switch("dodge", on));
+    engine.register_fn("get_dodge", || -> bool { crate::audio::get_switch("dodge") });
     engine.register_fn("set_counter", |on: bool| {
-        COUNTER_ENABLED.store(on, Ordering::SeqCst)
+        crate::audio::set_switch("counter", on)
     });
-    engine.register_fn("get_counter", || -> bool { COUNTER_ENABLED.load(Ordering::SeqCst) });
+    engine.register_fn("get_counter", || -> bool {
+        crate::audio::get_switch("counter")
+    });
 
     let m = matcher.clone();
     engine.register_fn("get_team", move |img: Frame| -> Array {

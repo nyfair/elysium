@@ -17,6 +17,7 @@ use crate::k;
 
 pub type Action = Arc<dyn Fn(&Arc<Mutex<Gamepad>>) + Send + Sync>;
 
+#[derive(Clone)]
 pub struct TemplateConfig {
     pub name: &'static str,
     pub path: PathBuf,
@@ -24,22 +25,20 @@ pub struct TemplateConfig {
     pub delay: f64,
     pub cooldown: f64,
     pub action: Action,
-    pub enabled: Arc<AtomicBool>,
 }
 
 struct PreparedTemplate {
+    name: &'static str,
     matcher: Matcher,
     threshold: f64,
     delay: f64,
     cooldown: f64,
     action: Action,
-    enabled: Arc<AtomicBool>,
 }
 
 struct Matcher {
     freq: Vec<Complex<f32>>,
     tmpl_len: usize,
-    inverse: Arc<dyn rustfft::Fft<f32>>,
 }
 
 impl Matcher {
@@ -50,67 +49,127 @@ impl Matcher {
             .collect();
         freq.resize(n, Complex::new(0., 0.));
         planner.plan_fft(n, rustfft::FftDirection::Forward).process(&mut freq);
-        let inverse = planner.plan_fft(n, rustfft::FftDirection::Inverse);
-        Self { freq, tmpl_len: template_norm.len(), inverse }
+        Self { freq, tmpl_len: template_norm.len() }
     }
+}
 
-    fn score(&self, stream_spec: &[Complex<f32>], denom: usize) -> f32 {
-        if denom < self.tmpl_len {
-            return 0.;
-        }
-        let mut a = stream_spec.to_vec();
-        for (x, y) in a.iter_mut().zip(self.freq.iter()) {
-            *x *= y.conj();
-        }
-        self.inverse.process(&mut a);
-        let inv = 1. / a.len() as f32;
-        let valid = denom - self.tmpl_len + 1;
-        let mut best = 0f32;
-        for k in 0..valid {
-            let v = a[k + self.tmpl_len - 1].re * inv;
+fn peak_of(prod: &[Complex<f32>], im: bool, n: usize, tmpl_len: usize, denom: usize) -> f32 {
+    if denom == 0 {
+        return 0.;
+    }
+    let mut best = 0f32;
+    if denom >= tmpl_len {
+        for k in 0..=(denom - tmpl_len) {
+            let c = prod[k + tmpl_len - 1];
+            let v = if im { c.im } else { c.re };
             if v > best {
                 best = v;
             }
         }
-        best / denom as f32
+    } else {
+        for m in 0..=(tmpl_len - denom) {
+            let c = prod[m];
+            let v = if im { c.im } else { c.re };
+            if v > best {
+                best = v;
+            }
+        }
     }
+    best / n as f32 / denom as f32
 }
 
 const FRAME_STEP_SECS: f64 = 0.05;
 const POLL_MILLIS: u64 = 5;
 const WORK_RATE: u32 = 32000;
-const WINDOW_MARGIN_SECS: f64 = 0.6;
+const DEBUG_SCORES: bool = true;
 
-static SWITCHES: Mutex<Vec<Arc<AtomicBool>>> = Mutex::new(Vec::new());
-static STATE: Mutex<Option<()>> = Mutex::new(None);
+static SWITCHES: Mutex<Vec<(String, bool)>> = Mutex::new(Vec::new());
+static MONITOR: Mutex<Option<Arc<AtomicBool>>> = Mutex::new(None);
+static SNAPSHOT: Mutex<Option<(Arc<Mutex<Gamepad>>, Vec<TemplateConfig>)>> = Mutex::new(None);
+static REBUILD: AtomicBool = AtomicBool::new(false);
 
-pub fn ensure_started(pad: Arc<Mutex<Gamepad>>, templates: Vec<TemplateConfig>) {
-    let mut st = k!(STATE);
-    let first = st.is_none();
-    if first {
-        *st = Some(());
-    }
-    drop(st);
-    if first {
-        k!(SWITCHES).extend(templates.iter().map(|t| t.enabled.clone()));
-    }
-    if !first {
-        return;
-    }
-    let _ = Builder::new().name("dodge".into()).spawn(move || {
-        if let Err(e) = listen(pad, templates) {
-            eprintln!("音频监听启动失败：{e}");
+pub fn set_switch(name: &str, on: bool) {
+    {
+        let mut sw = k!(SWITCHES);
+        if let Some(v) = sw.iter_mut().find(|(n, _)| n == name) {
+            v.1 = on;
+        } else {
+            sw.push((name.to_owned(), on));
         }
-    });
+    }
+    if on {
+        if k!(MONITOR).is_some() {
+            REBUILD.store(true, Ordering::SeqCst);
+        }
+        maybe_spawn();
+    }
+}
+
+pub fn get_switch(name: &str) -> bool {
+    k!(SWITCHES)
+        .iter()
+        .find(|(n, _)| n == name)
+        .map(|(_, v)| *v)
+        .unwrap_or(false)
 }
 
 pub fn disable_all() {
-    for s in k!(SWITCHES).iter() {
-        s.store(false, Ordering::SeqCst);
+    {
+        let mut sw = k!(SWITCHES);
+        for (_, v) in sw.iter_mut() {
+            *v = false;
+        }
+    }
+    maybe_stop();
+}
+
+fn maybe_spawn() {
+    let alive = k!(MONITOR)
+        .as_ref()
+        .map(|s| !s.load(Ordering::SeqCst))
+        .unwrap_or(false);
+    if alive {
+        return;
+    }
+    let Some((pad, configs)) = k!(SNAPSHOT).clone() else {
+        return;
+    };
+    let stop = Arc::new(AtomicBool::new(false));
+    *k!(MONITOR) = Some(stop.clone());
+    let _ = Builder::new()
+        .name("dodge".into())
+        .spawn(move || {
+            if let Err(e) = listen(pad, configs, stop) {
+                eprintln!("音频监听启动失败：{e}");
+            }
+        });
+}
+
+fn maybe_stop() {
+    let any_on = k!(SWITCHES).iter().any(|(_, v)| *v);
+    if !any_on && let Some(s) = k!(MONITOR).as_ref() {
+        s.store(true, Ordering::SeqCst);
+        *k!(MONITOR) = None;
     }
 }
 
-fn listen(pad: Arc<Mutex<Gamepad>>, configs: Vec<TemplateConfig>) -> anyhow::Result<()> {
+pub fn ensure_started(pad: Arc<Mutex<Gamepad>>, templates: Vec<TemplateConfig>) {
+    {
+        let mut sw = k!(SWITCHES);
+        for t in &templates {
+            if !sw.iter().any(|(n, _)| n == t.name) {
+                sw.push((t.name.to_owned(), false));
+            }
+        }
+    }
+    *k!(SNAPSHOT) = Some((pad, templates));
+}
+
+fn listen(
+    pad: Arc<Mutex<Gamepad>>,
+    configs: Vec<TemplateConfig>,
+    stop: Arc<AtomicBool>,
+) -> anyhow::Result<()> {
     let raws: Vec<(LoadedTemplate, TemplateConfig)> = configs
         .into_iter()
         .map(|c| {
@@ -130,39 +189,73 @@ fn listen(pad: Arc<Mutex<Gamepad>>, configs: Vec<TemplateConfig>) -> anyhow::Res
         client.Start()?;
     }
 
+    let mut selected: Vec<TemplateConfig> = raws
+        .iter()
+        .filter(|(_, c)| get_switch(c.name))
+        .map(|(_, c)| c.clone())
+        .collect();
+    if selected.is_empty() {
+        selected = raws.iter().map(|(_, c)| c.clone()).collect();
+    }
+    let any_enabled = !selected.is_empty()
+        && raws
+            .iter()
+            .any(|(_, c)| get_switch(c.name));
+
     let mut planner = FftPlanner::<f32>::new();
     let norms: Vec<Vec<f32>> = raws
         .iter()
         .map(|(t, _)| normalize(&highpass(&resample(&t.data, t.src_rate, WORK_RATE), WORK_RATE)))
         .collect();
-    let max_tmpl = norms.iter().map(|v| v.len()).max().unwrap_or(1);
-    let window_work = max_tmpl + (WINDOW_MARGIN_SECS * WORK_RATE as f64) as usize;
-    let window_native = ((window_work as f64) * fs as f64 / WORK_RATE as f64).ceil() as usize;
+    let active_max_tmpl = raws
+        .iter()
+        .zip(norms.iter())
+        .filter(|((_, c), _)| get_switch(c.name))
+        .map(|(_, v)| v.len())
+        .max()
+        .unwrap_or(1);
+    let stream_work = (FRAME_STEP_SECS * 2. * WORK_RATE as f64) as usize;
+    let stream_native = ((stream_work as f64) * fs as f64 / WORK_RATE as f64).ceil() as usize;
     let step = (FRAME_STEP_SECS * fs as f64) as usize;
-    let n_common = window_work + max_tmpl;
+    let n_common = stream_work + active_max_tmpl;
     let forward = planner.plan_fft(n_common, rustfft::FftDirection::Forward);
+    let inverse = planner.plan_fft(n_common, rustfft::FftDirection::Inverse);
 
-    let mut cfg_iter = raws.into_iter();
-    let prepared: Vec<PreparedTemplate> = norms
-        .into_iter()
-        .map(|norm| {
-            let (_, c) = cfg_iter.next().unwrap();
-            PreparedTemplate {
-                matcher: Matcher::new(&norm, n_common, &mut planner),
-                threshold: c.threshold,
-                delay: c.delay,
-                cooldown: c.cooldown,
-                action: c.action,
-                enabled: c.enabled,
-            }
+    let prepared: Vec<PreparedTemplate> = raws
+        .iter()
+        .zip(norms.iter())
+        .filter(|((_, c), _)| any_enabled && get_switch(c.name))
+        .map(|((_, c), norm)| PreparedTemplate {
+            name: c.name,
+            matcher: Matcher::new(norm, n_common, &mut planner),
+            threshold: c.threshold,
+            delay: c.delay,
+            cooldown: c.cooldown,
+            action: c.action.clone(),
         })
         .collect();
     let mut last_fire: Vec<Option<Instant>> = vec![None; prepared.len()];
+    let mut scores: Vec<f32> = vec![0.; prepared.len()];
+    let mut active: Vec<usize> = Vec::with_capacity(prepared.len());
+    let mut spec: Vec<Complex<f32>> = vec![Complex::new(0., 0.); n_common];
+    let mut prod_a: Vec<Complex<f32>> = vec![Complex::new(0., 0.); n_common];
+    let mut wr: Vec<f32> = Vec::with_capacity(stream_work + 64);
+    let mut filtered: Vec<f32> = Vec::with_capacity(stream_work + 64);
+    let mut normed: Vec<f32> = Vec::with_capacity(stream_work + 64);
 
     let mut buf: Vec<f32> = Vec::new();
     let mut pending: Vec<f32> = Vec::new();
     let mut since_calc = 0usize;
+    let mut busy = Duration::ZERO;
+    let mut hops = 0u64;
+    let mut last_report = Instant::now();
     loop {
+        if stop.load(Ordering::SeqCst) {
+            unsafe {
+                client.Stop()?;
+            }
+            return Ok(());
+        }
         let packet = unsafe { capture.GetNextPacketSize()? };
         if packet == 0 {
             sleep(Duration::from_millis(POLL_MILLIS));
@@ -183,29 +276,75 @@ fn listen(pad: Arc<Mutex<Gamepad>>, configs: Vec<TemplateConfig>) -> anyhow::Res
         unsafe {
             capture.ReleaseBuffer(frames)?;
         }
-        if since_calc < step || buf.len() < step * 2 {
+        if since_calc < step || buf.len() < stream_native {
             continue;
         }
         since_calc = 0;
-        let start = buf.len().saturating_sub(window_native.max(step));
-        let wr = resample(&buf[start..], fs, WORK_RATE);
-        if wr.len() < max_tmpl {
+        let t0 = Instant::now();
+        active.clear();
+        for (i, t) in prepared.iter().enumerate() {
+            if DEBUG_SCORES || get_switch(t.name) {
+                active.push(i);
+            } else {
+                scores[i] = 0.;
+            }
+        }
+        if active.is_empty() {
             continue;
         }
-        let normed = normalize(&highpass(&wr, WORK_RATE));
+        let start = buf.len().saturating_sub(stream_native.max(step));
+        resample_into(&buf[start..], fs, WORK_RATE, &mut wr);
+        highpass_into(&wr, WORK_RATE, &mut filtered);
+        normalize_into(&filtered, &mut normed);
         let denom = normed.len();
-        let mut spec: Vec<Complex<f32>> = normed.iter().map(|&x| Complex::new(x, 0.)).collect();
-        spec.resize(n_common, Complex::new(0., 0.));
+        for (i, v) in spec.iter_mut().enumerate() {
+            *v = Complex::new(normed.get(i).copied().unwrap_or(0.), 0.);
+        }
         forward.process(&mut spec);
-        let scores: Vec<f32> = prepared
-            .iter()
-            .map(|t| t.matcher.score(&spec, denom))
-            .collect();
+        for pair in active.chunks(2) {
+            let m0 = &prepared[pair[0]].matcher;
+            if pair.len() == 2 {
+                let m1 = &prepared[pair[1]].matcher;
+                for k in 0..n_common {
+                    let s = spec[k];
+                    let a = s * m0.freq[k].conj();
+                    let b = s * m1.freq[k].conj();
+                    prod_a[k] = Complex::new(a.re - b.im, a.im + b.re);
+                }
+                inverse.process(&mut prod_a);
+                scores[pair[0]] = peak_of(&prod_a, false, n_common, m0.tmpl_len, denom);
+                scores[pair[1]] = peak_of(&prod_a, true, n_common, m1.tmpl_len, denom);
+            } else {
+                for k in 0..n_common {
+                    prod_a[k] = spec[k] * m0.freq[k].conj();
+                }
+                inverse.process(&mut prod_a);
+                scores[pair[0]] = peak_of(&prod_a, false, n_common, m0.tmpl_len, denom);
+            }
+        }
+        if DEBUG_SCORES {
+            let s = scores.iter().map(|v| format!("{v:.4}")).collect::<Vec<_>>().join(" ");
+            eprintln!("scores: {s}");
+        }
+        busy += t0.elapsed();
+        hops += 1;
+        let elapsed = last_report.elapsed();
+        if elapsed.as_secs_f64() >= 5. {
+            eprintln!(
+                "audio: {} hops/5s, busy {:.2} ms/s ({:.2}% core)",
+                hops,
+                busy.as_secs_f64() * 1000. / elapsed.as_secs_f64(),
+                busy.as_secs_f64() / elapsed.as_secs_f64() * 100.
+            );
+            hops = 0;
+            busy = Duration::ZERO;
+            last_report = Instant::now();
+        }
         for (i, t) in prepared.iter().enumerate() {
             let ready = last_fire[i]
                 .map(|t0| t0.elapsed().as_secs_f64() >= t.cooldown)
                 .unwrap_or(true);
-            if scores[i] as f64 >= t.threshold && ready && t.enabled.load(Ordering::SeqCst) {
+            if scores[i] as f64 >= t.threshold && ready && get_switch(t.name) {
                 last_fire[i] = Some(Instant::now());
                 let act = t.action.clone();
                 let pad2 = pad.clone();
@@ -221,8 +360,8 @@ fn listen(pad: Arc<Mutex<Gamepad>>, configs: Vec<TemplateConfig>) -> anyhow::Res
                     .ok();
             }
         }
-        if buf.len() > window_native + step * 4 {
-            buf.drain(..buf.len() - window_native);
+        if buf.len() > stream_native + step * 4 {
+            buf.drain(..buf.len() - stream_native);
         }
     }
 }
@@ -424,4 +563,40 @@ fn normalize(data: &[f32]) -> Vec<f32> {
     let var = data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / n;
     let std = var.sqrt() + 1e-8;
     data.iter().map(|x| (x - mean) / std).collect()
+}
+
+fn resample_into(data: &[f32], src: u32, dst: u32, out: &mut Vec<f32>) {
+    out.clear();
+    if src == dst || data.is_empty() {
+        out.extend_from_slice(data);
+        return;
+    }
+    let out_len = ((data.len() as f64) * dst as f64 / src as f64).round() as usize;
+    let ratio = src as f64 / dst as f64;
+    for i in 0..out_len {
+        let pos = i as f64 * ratio;
+        let i0 = pos.floor() as usize;
+        let i1 = (i0 + 1).min(data.len() - 1);
+        let frac = (pos - i0 as f64) as f32;
+        out.push(data[i0] * (1. - frac) + data[i1] * frac);
+    }
+}
+
+fn highpass_into(data: &[f32], fs: u32, out: &mut Vec<f32>) {
+    let mut s1 = Biquad::highpass(fs as f32, 1000., 0.54119610);
+    let mut s2 = Biquad::highpass(fs as f32, 1000., 1.30656296);
+    out.clear();
+    out.extend(data.iter().map(|&x| s2.apply(s1.apply(x))));
+}
+
+fn normalize_into(data: &[f32], out: &mut Vec<f32>) {
+    out.clear();
+    let n = data.len() as f32;
+    if n == 0. {
+        return;
+    }
+    let mean = data.iter().sum::<f32>() / n;
+    let var = data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / n;
+    let std = var.sqrt() + 1e-8;
+    out.extend(data.iter().map(|x| (x - mean) / std));
 }

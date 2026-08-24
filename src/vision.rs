@@ -73,7 +73,7 @@ pub fn scale_roi(img_w: u32, img_h: u32, roi: (u32, u32, u32, u32)) -> (u32, u32
 }
 
 struct FrameBuf {
-    rgb: Vec<u8>,
+    rgba: Vec<u8>,
     width: u32,
     height: u32,
 }
@@ -87,6 +87,7 @@ struct VisionHandler {
     off_y: u32,
     cw: u32,
     ch: u32,
+    raw: Vec<u8>,
 }
 
 impl GraphicsCaptureApiHandler for VisionHandler {
@@ -101,6 +102,7 @@ impl GraphicsCaptureApiHandler for VisionHandler {
             off_y: off_y.max(0) as u32,
             cw: cw.max(0) as u32,
             ch: ch.max(0) as u32,
+            raw: Vec::new(),
         })
     }
 
@@ -125,21 +127,15 @@ impl GraphicsCaptureApiHandler for VisionHandler {
         } else {
             (w, h, 0, 0)
         };
-        let mut raw = Vec::new();
-        let bytes = fb.as_nopadding_buffer(&mut raw);
-        let mut rgb = Vec::with_capacity((cw as usize) * (ch as usize) * 3);
-        for y in off_y..off_y + ch {
-            let row = (y * w + off_x) as usize;
-            for x in 0..cw {
-                let i = (row + x as usize) * 4;
-                rgb.push(bytes[i]);
-                rgb.push(bytes[i + 1]);
-                rgb.push(bytes[i + 2]);
-            }
-        }
+        let bytes = fb.as_nopadding_buffer(&mut self.raw);
         if let Some(buf) = k!(SHARED).as_ref() {
             let mut f = k!(buf);
-            f.rgb = rgb;
+            f.rgba.clear();
+            for y in off_y..off_y + ch {
+                let s = ((y * w + off_x) * 4) as usize;
+                let e = s + (cw as usize) * 4;
+                f.rgba.extend_from_slice(&bytes[s..e]);
+            }
             f.width = cw;
             f.height = ch;
         }
@@ -149,6 +145,19 @@ impl GraphicsCaptureApiHandler for VisionHandler {
 
 pub struct Vision {
     buffer: Arc<Mutex<FrameBuf>>,
+}
+
+fn to_rgb_image(f: &FrameBuf) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {
+    if f.width == 0 || f.height == 0 || f.rgba.is_empty() {
+        anyhow::bail!("截图数据为空");
+    }
+    let mut rgb = Vec::with_capacity((f.width as usize) * (f.height as usize) * 3);
+    for px in f.rgba.chunks_exact(4) {
+        rgb.push(px[0]);
+        rgb.push(px[1]);
+        rgb.push(px[2]);
+    }
+    ImageBuffer::from_raw(f.width, f.height, rgb).ok_or_else(|| anyhow!("截图数据为空"))
 }
 
 pub fn activate_window(window: &Window) {
@@ -181,7 +190,7 @@ impl Vision {
         let off_y = (origin.y - win_rect.top).max(0) as u32;
         let cw = (client_rect.right - client_rect.left) as u32;
         let ch = (client_rect.bottom - client_rect.top) as u32;
-        let buffer = Arc::new(Mutex::new(FrameBuf { rgb: Vec::new(), width: 0, height: 0 }));
+        let buffer = Arc::new(Mutex::new(FrameBuf { rgba: Vec::new(), width: 0, height: 0 }));
         let b = buffer.clone();
         *k!(SHARED) = Some(buffer);
         let settings = Settings::new(
@@ -189,7 +198,7 @@ impl Vision {
             CursorCaptureSettings::WithoutCursor,
             DrawBorderSettings::WithoutBorder,
             SecondaryWindowSettings::Default,
-            MinimumUpdateIntervalSettings::Default,
+            MinimumUpdateIntervalSettings::Custom(Duration::from_millis(33)),
             DirtyRegionSettings::Default,
             ColorFormat::Rgba8,
             (off_x as i32, off_y as i32, cw as i32, ch as i32),
@@ -202,7 +211,7 @@ impl Vision {
                 }
             })?;
         for _ in 0..200 {
-            if !k!(b).rgb.is_empty() {
+            if !k!(b).rgba.is_empty() {
                 return Ok(Self { buffer: b });
             }
             thread::sleep(Duration::from_millis(10));
@@ -214,16 +223,13 @@ impl Vision {
         EPOCH.fetch_add(1, Ordering::SeqCst);
     }
 
-    pub fn shot(&self) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {
-        let f = k!(&self.buffer);
-        ImageBuffer::from_raw(f.width, f.height, f.rgb.clone())
-            .ok_or_else(|| anyhow!("截图数据为空"))
+    pub fn shot(&self) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {        let f = k!(&self.buffer);
+        to_rgb_image(&f)
     }
 
     pub fn shot_to_file(&self, path: &str) -> Result<()> {
         let f = k!(&self.buffer);
-        let img: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(f.width, f.height, f.rgb.clone())
-            .ok_or_else(|| anyhow!("截图数据为空"))?;
+        let img = to_rgb_image(&f)?;
         drop(f);
         img.save(path)?;
         Ok(())
