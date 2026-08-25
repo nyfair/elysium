@@ -49,6 +49,7 @@ fn counter_action() -> crate::audio::Action {
 }
 
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct Character {
     pub name: String,
     pub asset_name: String,
@@ -57,17 +58,6 @@ pub struct Character {
     pub debug_info: Option<String>,
 }
 
-impl Default for Character {
-    fn default() -> Self {
-        Self {
-            name: String::new(),
-            asset_name: String::new(),
-            tag: Vec::new(),
-            element: 0,
-            debug_info: None,
-        }
-    }
-}
 
 fn parse_element(s: &str) -> Option<u8> {
     match s {
@@ -120,7 +110,6 @@ pub fn load_characters() -> Result<Vec<Character>> {
             .as_str()
             .context("缺少 ElementData.CharacterElementType")?;
         let element = parse_element(element_str)
-            .map(|e| e as u8)
             .ok_or_else(|| anyhow::anyhow!("未知元素类型：{element_str}（角色 {name}）"))?;
         let tag = info["PlayerViewTagArray"]
             .as_array()

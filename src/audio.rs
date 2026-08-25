@@ -524,8 +524,8 @@ impl Biquad {
 }
 
 fn highpass(data: &[f32], fs: u32) -> Vec<f32> {
-    let mut s1 = Biquad::highpass(fs as f32, 1000., 0.54119610);
-    let mut s2 = Biquad::highpass(fs as f32, 1000., 1.30656296);
+    let mut s1 = Biquad::highpass(fs as f32, 1000., 0.541_196_1);
+    let mut s2 = Biquad::highpass(fs as f32, 1000., 1.306_562_9);
     data.iter().map(|&x| s2.apply(s1.apply(x))).collect()
 }
 
@@ -558,8 +558,8 @@ fn resample_into(data: &[f32], src: u32, dst: u32, out: &mut Vec<f32>) {
 }
 
 fn highpass_into(data: &[f32], fs: u32, out: &mut Vec<f32>) {
-    let mut s1 = Biquad::highpass(fs as f32, 1000., 0.54119610);
-    let mut s2 = Biquad::highpass(fs as f32, 1000., 1.30656296);
+    let mut s1 = Biquad::highpass(fs as f32, 1000., 0.541_196_1);
+    let mut s2 = Biquad::highpass(fs as f32, 1000., 1.306_562_9);
     out.clear();
     out.extend(data.iter().map(|&x| s2.apply(s1.apply(x))));
 }

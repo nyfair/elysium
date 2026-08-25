@@ -140,7 +140,7 @@ fn init_resources(
     #[cfg(feature = "ocr")]
     let ocr = crate::ocr::Ocr::global().context("无法初始化 OCR 引擎")?;
     let mut engine = new_engine(
-        &vision, &pad, &assets, &state,
+        &vision, &pad, &assets, state,
         #[cfg(feature = "ocr")]
         &ocr
     );
@@ -153,11 +153,11 @@ fn init_resources(
     match game {
         #[cfg(feature = "dna")]
         GameType::Dna => {
-            crate::dna::setup_engine(&mut engine, &pad, &state);
+            crate::dna::setup_engine(&mut engine, &pad, state);
         }
         #[cfg(feature = "nte")]
         GameType::Nte => {
-            crate::nte::setup_engine(&mut engine, &pad, &state, &vision, &ocr);
+            crate::nte::setup_engine(&mut engine, &pad, state, &vision, &ocr);
         }
     }
     let engine = Arc::new(engine);
@@ -234,7 +234,7 @@ fn run_inner(
             resources.engine.clone(),
             ast,
             scope,
-            &state,
+            state,
             exit.clone(),
             reset.clone(),
             timeout,
@@ -248,7 +248,7 @@ fn run_inner(
             resources.engine.clone(),
             ast,
             scope,
-            &state,
+            state,
             exit.clone(),
             reset.clone(),
             timeout,

@@ -172,13 +172,11 @@ fn scan_tasks(game: &GameType) -> Vec<String> {
         if let Ok(rd) = std::fs::read_dir(dir) {
             for e in rd.filter_map(|e| e.ok()) {
                 let p = e.path();
-                if p.extension().map(|x| x == "rhai").unwrap_or(false) {
-                    if let Some(s) = p.file_stem().map(|s| s.to_string_lossy().into_owned()) {
-                        if !tasks.contains(&s) {
+                if p.extension().map(|x| x == "rhai").unwrap_or(false)
+                    && let Some(s) = p.file_stem().map(|s| s.to_string_lossy().into_owned())
+                        && !tasks.contains(&s) {
                             tasks.push(s);
                         }
-                    }
-                }
             }
         }
     }

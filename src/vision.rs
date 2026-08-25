@@ -16,7 +16,7 @@ use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_
 use windows::Win32::Graphics::Gdi::ClientToScreen;
 use windows::Win32::UI::WindowsAndMessaging::{GetClientRect, PostMessageW};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -26,6 +26,10 @@ use crate::k;
 pub type AssetMap = HashMap<String, GrayImage>;
 
 static FFT_PLANNER: Mutex<Option<FftPlanner<f64>>> = Mutex::new(None);
+static SHOT_TRIGGER: AtomicBool = AtomicBool::new(false);
+static FRAME_SEQ: AtomicU64 = AtomicU64::new(0);
+static SHARED: Mutex<Option<Arc<Mutex<FrameBuf>>>> = Mutex::new(None);
+static EPOCH: AtomicU64 = AtomicU64::new(0);
 
 const BASE_WIDTH: f64 = 1280.;
 const BASE_HEIGHT: f64 = 720.;
@@ -78,9 +82,6 @@ struct FrameBuf {
     height: u32,
 }
 
-static SHARED: Mutex<Option<Arc<Mutex<FrameBuf>>>> = Mutex::new(None);
-static EPOCH: AtomicU64 = AtomicU64::new(0);
-
 struct VisionHandler {
     epoch: u64,
     off_x: u32,
@@ -115,29 +116,32 @@ impl GraphicsCaptureApiHandler for VisionHandler {
             control.stop();
             return Ok(());
         }
-        let fb = frame.buffer()?;
-        let w = fb.width();
-        let h = fb.height();
-        let (cw, ch, off_x, off_y) = if self.cw > 0
-            && self.ch > 0
-            && self.off_x + self.cw <= w
-            && self.off_y + self.ch <= h
-        {
-            (self.cw, self.ch, self.off_x, self.off_y)
-        } else {
-            (w, h, 0, 0)
-        };
-        let bytes = fb.as_nopadding_buffer(&mut self.raw);
-        if let Some(buf) = k!(SHARED).as_ref() {
-            let mut f = k!(buf);
-            f.rgba.clear();
-            for y in off_y..off_y + ch {
-                let s = ((y * w + off_x) * 4) as usize;
-                let e = s + (cw as usize) * 4;
-                f.rgba.extend_from_slice(&bytes[s..e]);
+        if SHOT_TRIGGER.swap(false, Ordering::AcqRel) {
+            let fb = frame.buffer()?;
+            let w = fb.width();
+            let h = fb.height();
+            let (cw, ch, off_x, off_y) = if self.cw > 0
+                && self.ch > 0
+                && self.off_x + self.cw <= w
+                && self.off_y + self.ch <= h
+            {
+                (self.cw, self.ch, self.off_x, self.off_y)
+            } else {
+                (w, h, 0, 0)
+            };
+            let bytes = fb.as_nopadding_buffer(&mut self.raw);
+            if let Some(buf) = k!(SHARED).as_ref() {
+                let mut f = k!(buf);
+                f.rgba.clear();
+                for y in off_y..off_y + ch {
+                    let s = ((y * w + off_x) * 4) as usize;
+                    let e = s + (cw as usize) * 4;
+                    f.rgba.extend_from_slice(&bytes[s..e]);
+                }
+                f.width = cw;
+                f.height = ch;
             }
-            f.width = cw;
-            f.height = ch;
+            FRAME_SEQ.fetch_add(1, Ordering::Release);
         }
         Ok(())
     }
@@ -198,7 +202,7 @@ impl Vision {
             CursorCaptureSettings::WithoutCursor,
             DrawBorderSettings::WithoutBorder,
             SecondaryWindowSettings::Default,
-            MinimumUpdateIntervalSettings::Custom(Duration::from_millis(33)),
+            MinimumUpdateIntervalSettings::Default,
             DirtyRegionSettings::Default,
             ColorFormat::Rgba8,
             (off_x as i32, off_y as i32, cw as i32, ch as i32),
@@ -210,6 +214,7 @@ impl Vision {
                     eprintln!("截图出错：{e}");
                 }
             })?;
+        SHOT_TRIGGER.store(true, Ordering::Release);
         for _ in 0..200 {
             if !k!(b).rgba.is_empty() {
                 return Ok(Self { buffer: b });
@@ -223,11 +228,14 @@ impl Vision {
         EPOCH.fetch_add(1, Ordering::SeqCst);
     }
 
-    pub fn shot(&self) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {        let f = k!(&self.buffer);
+    pub fn shot(&self) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {
+        self.wait_frame(Duration::from_millis(200))?;
+        let f = k!(&self.buffer);
         to_rgb_image(&f)
     }
 
     pub fn shot_to_file(&self, path: &str) -> Result<()> {
+        self.wait_frame(Duration::from_millis(200))?;
         let f = k!(&self.buffer);
         let img = to_rgb_image(&f)?;
         drop(f);
@@ -238,6 +246,19 @@ impl Vision {
     pub fn get_dimension(&self) -> (u32, u32) {
         let buf = k!(self.buffer);
         (buf.width, buf.height)
+    }
+
+    fn wait_frame(&self, timeout: Duration) -> Result<()> {
+        let current_seq = FRAME_SEQ.load(Ordering::Acquire);
+        SHOT_TRIGGER.store(true, Ordering::Release);
+        let start = std::time::Instant::now();
+        while start.elapsed() < timeout {
+            if FRAME_SEQ.load(Ordering::Acquire) != current_seq {
+                return Ok(());
+            }
+            thread::sleep(Duration::from_millis(2));
+        }
+        anyhow::bail!("等待截图响应超时")
     }
 }
 

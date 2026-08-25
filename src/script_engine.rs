@@ -190,7 +190,7 @@ pub fn new_engine(
     engine.register_fn("crop", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Frame {
         let orig = k!(img);
         let (rx, ry, rw, rh) = scale_roi(orig.width(), orig.height(), (x as u32, y as u32, w as u32, h as u32));
-        let crop = image::imageops::crop_imm(&*orig, rx as u32, ry as u32, rw as u32, rh as u32).to_image();
+        let crop = image::imageops::crop_imm(&*orig, rx, ry, rw, rh).to_image();
         Arc::new(Mutex::new(crop))
     });
     engine.register_fn("get_pixel", move |img: Frame, x: i64, y: i64| -> Array {
