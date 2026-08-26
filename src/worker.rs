@@ -1,4 +1,4 @@
-﻿use anyhow::{Context, Result};
+use anyhow::{Context, Result};
 use rhai::{AST, Engine, Scope};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};

@@ -229,13 +229,13 @@ impl Vision {
     }
 
     pub fn shot(&self) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {
-        self.wait_frame(Duration::from_millis(200))?;
+        let _ = self.wait_frame(Duration::from_millis(200));
         let f = k!(&self.buffer);
         to_rgb_image(&f)
     }
 
     pub fn shot_to_file(&self, path: &str) -> Result<()> {
-        self.wait_frame(Duration::from_millis(200))?;
+        let _ = self.wait_frame(Duration::from_millis(200));
         let f = k!(&self.buffer);
         let img = to_rgb_image(&f)?;
         drop(f);
