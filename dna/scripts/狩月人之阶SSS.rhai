@@ -10,8 +10,10 @@ fn task_ended(img) {
 }
 
 fn wait_flower() {
-    while !pixel_like(shot(), 632, 592, 245, 245, 183, 50) {
+    let img = shot();
+    while !(pixel_like(img, 631, 600, 245, 245, 245, 50) || pixel_like(img, 632, 592, 245, 245, 183, 50)) {
         wait(0.01);
+        img = shot();
     }
 }
 
@@ -24,7 +26,7 @@ click(Y, 0.1, 4.0);
 while !task_started(shot()) { wait(0.2); }
 wait(1.0);
 press(LB);
-click(Y, 2.5);
+click(Y, 0.1, 2.5);
 click(X, 0.1, 0.5);
 click(X, 0.1, 0.5);
 release(LB, 0.0);
