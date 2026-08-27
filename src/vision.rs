@@ -326,9 +326,9 @@ pub fn pixel_equal(img: &ImageBuffer<Rgb<u8>, Vec<u8>>, x: u32, y: u32, r: u8, g
 
 pub fn pixel_like(img: &ImageBuffer<Rgb<u8>, Vec<u8>>, x: u32, y: u32, r: u8, g: u8, b: u8, v: u8) -> bool {
     let p = get_pixel(img, x, y);
-    (p[0] as i16 - r as i16).abs() < v as i16
-        && (p[1] as i16 - g as i16).abs() < v as i16
-        && (p[2] as i16 - b as i16).abs() < v as i16
+    (p[0] as i16 - r as i16).abs() <= v as i16
+        && (p[1] as i16 - g as i16).abs() <= v as i16
+        && (p[2] as i16 - b as i16).abs() <= v as i16
 }
 
 pub fn ncc_match(

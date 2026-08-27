@@ -1,6 +1,5 @@
 let img = shot();
 let team = get_team(img);
-// debug info
 print(team[0].name());
 print(team[0].element());
 print(team[0].tag());
