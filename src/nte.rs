@@ -26,6 +26,11 @@ pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
     (1162, 397, 64, 64),
 ];
 
+const FEATURE_SIZE: u32 = 64;
+const MASK_RADIUS_RATIO: f32 = 0.42;
+const SCORE_MIN: f32 = 0.55;
+const SCORE_GAP: f32 = 0.01;
+const VARIANCE_MIN: f32 = 0.025;
 const SOUND_DIR: &str = "nte/sounds";
 const DODGE_THRESHOLD: f64 = 0.16;
 const DODGE_DELAY: f64 = 0.;
@@ -119,12 +124,6 @@ pub fn load_characters() -> Result<Vec<Character>> {
     }
     Ok(out)
 }
-
-const FEATURE_SIZE: u32 = 64;
-const MASK_RADIUS_RATIO: f32 = 0.42;
-const SCORE_MIN: f32 = 0.55;
-const SCORE_GAP: f32 = 0.01;
-const VARIANCE_MIN: f32 = 0.025;
 
 pub struct AvatarMatcher {
     templates: TemplateSet,
@@ -229,7 +228,7 @@ pub fn load_tp() -> Result<TpData> {
     Ok(TpData { areas, points })
 }
 
-fn travel(
+fn locate(
     vision: &Vision,
     ocr: &Ocr,
     pad: &Mutex<Gamepad>,
@@ -240,11 +239,11 @@ fn travel(
 ) -> bool {
     let n = tp.areas.len();
     if n == 0 {
-        eprintln!("travel: areas 为空");
+        eprintln!("teleport: areas 为空");
         return false;
     }
     let Some(tgt_idx) = tp.areas.iter().position(|a| a == target_area) else {
-        eprintln!("travel: 未知区域：{target_area}");
+        eprintln!("teleport: 未知区域：{target_area}");
         return false;
     };
     k!(pad).click(BACK, 0.1, 1.7);
@@ -252,20 +251,20 @@ fn travel(
     let img = match vision.shot() {
         Ok(i) => i,
         Err(e) => {
-            eprintln!("travel: 截图失败：{e}");
+            eprintln!("teleport: 截图失败：{e}");
             return false;
         }
     };
     let lines = match ocr.recognize_roi(&img, (974, 132, 200, 30)) {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("travel: 区域识别失败：{e}");
+            eprintln!("teleport: 区域识别失败：{e}");
             return false;
         }
     };
     let text = lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>().concat();
     let Some(cur_idx) = tp.areas.iter().position(|a| text.contains(a.as_str())) else {
-        eprintln!("travel: 无法匹配当前区域：{text:?}");
+        eprintln!("teleport: 无法匹配当前区域：{text:?}");
         return false;
     };
     let mut d = (tgt_idx as i64 - cur_idx as i64).rem_euclid(n as i64);
@@ -291,10 +290,26 @@ fn travel(
     k!(pad).click(A, 0.3, 1.7);
     k!(pad).click(B, 0.1, 0.3);
     k!(pad).click(A, 0.3, 0.2);
+    true
+}
+
+fn teleport(
+    vision: &Vision,
+    ocr: &Ocr,
+    pad: &Mutex<Gamepad>,
+    tp: &TpData,
+    target_area: &str,
+    type_idx: i64,
+    index: i64,
+) -> bool {
+    if !locate(vision, ocr, pad, tp, target_area, type_idx, index) { return false }
     k!(pad).click(A, 0.3, 0.2);
     k!(pad).click(A, 0.3, 0.2);
     k!(pad).click(A, 0.5, 4.);
+    wait_loading(vision)
+}
 
+fn wait_loading(vision: &Vision) -> bool {
     for _ in 0..200 {
         let img = vision.shot().unwrap();
         if pixel_like(&img, 32, 134, 255, 255, 255, 15) &&
@@ -380,23 +395,32 @@ pub fn setup_engine(
     let p = pad.clone();
     let o = ocr.clone();
     let t = tp.clone();
-    engine.register_fn("travel", move |target: &str| -> bool {
+    engine.register_fn("teleport", move |target: &str| -> bool {
         let Some(pt) = t.points.get(target) else {
-            eprintln!("travel: 未知地点：{target}");
+            eprintln!("teleport: 未知地点：{target}");
             return false;
         };
-        travel(&v, &o, &p, &t, &pt.area, pt.r#type, pt.index)
+        teleport(&v, &o, &p, &t, &pt.area, pt.r#type, pt.index)
     });
     let v = vision.clone();
     let p = pad.clone();
     let o = ocr.clone();
     let t = tp.clone();
-    engine.register_fn(
-        "travel",
-        move |area: &str, type_idx: i64, index: i64| -> bool {
-            travel(&v, &o, &p, &t, area, type_idx, index)
-        },
-    );
+    engine.register_fn("teleport", move |area: &str, type_idx: i64, index: i64| -> bool {
+        teleport(&v, &o, &p, &t, area, type_idx, index)
+    });
+    let v = vision.clone();
+    let p = pad.clone();
+    let o = ocr.clone();
+    let t = tp.clone();
+    engine.register_fn("locate", move |area: &str, type_idx: i64, index: i64| -> bool {
+        locate(&v, &o, &p, &t, area, type_idx, index)
+    });
+    let v = vision.clone();
+    engine.register_fn("wait_loading", move || -> bool {
+        wait_loading(&v)
+    });
+
     k!(pad).click(LB, 0.0334, 0.);
 }
 

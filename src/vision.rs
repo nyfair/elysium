@@ -156,7 +156,7 @@ fn to_rgb_image(f: &FrameBuf) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {
         anyhow::bail!("截图数据为空");
     }
     let mut rgb = Vec::with_capacity((f.width as usize) * (f.height as usize) * 3);
-    for px in f.rgba.chunks_exact(4) {
+    for px in f.rgba.as_chunks::<4>().0 {
         rgb.push(px[0]);
         rgb.push(px[1]);
         rgb.push(px[2]);

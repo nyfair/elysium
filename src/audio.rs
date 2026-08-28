@@ -57,24 +57,15 @@ fn peak_of(prod: &[Complex<f32>], im: bool, n: usize, tmpl_len: usize, denom: us
     if denom == 0 {
         return 0.;
     }
-    let mut best = 0f32;
-    if denom >= tmpl_len {
-        for k in 0..=(denom - tmpl_len) {
-            let c = prod[k + tmpl_len - 1];
-            let v = if im { c.im } else { c.re };
-            if v > best {
-                best = v;
-            }
-        }
+    let slice = if denom >= tmpl_len {
+        &prod[(tmpl_len - 1)..denom]
     } else {
-        for m in 0..=(tmpl_len - denom) {
-            let c = prod[m];
-            let v = if im { c.im } else { c.re };
-            if v > best {
-                best = v;
-            }
-        }
-    }
+        &prod[..=(tmpl_len - denom)]
+    };
+    let best = slice
+        .iter()
+        .map(|c| if im { c.im } else { c.re })
+        .fold(0., f32::max);
     best / n as f32 / denom as f32
 }
 
@@ -121,10 +112,8 @@ pub fn disable_all() {
 }
 
 fn spawn() {
-    let alive = k!(MONITOR)
-        .as_ref()
-        .map(|s| !s.load(Ordering::SeqCst))
-        .unwrap_or(false);
+    let monitor = k!(MONITOR).clone();
+    let alive = monitor.as_ref().map(|s| !s.load(Ordering::SeqCst)).unwrap_or(false);
     if alive {
         return;
     }
@@ -144,9 +133,10 @@ fn spawn() {
 
 fn stop() {
     let any_on = k!(SWITCHES).iter().any(|(_, v)| *v);
-    if !any_on && let Some(s) = k!(MONITOR).as_ref() {
-        s.store(true, Ordering::SeqCst);
-        *k!(MONITOR) = None;
+    if !any_on {
+        if let Some(s) = k!(MONITOR).take() {
+            s.store(true, Ordering::SeqCst);
+        }
     }
 }
 

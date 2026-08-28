@@ -16,7 +16,7 @@ pub type Frame = Arc<Mutex<image::ImageBuffer<image::Rgb<u8>, Vec<u8>>>>;
 pub static STOP: AtomicBool = AtomicBool::new(false);
 
 pub fn sleep(secs: f64) {
-    let mut waited = 0.0f64;
+    let mut waited = 0.;
     while waited < secs {
         if STOP.load(Ordering::SeqCst) {
             break;
