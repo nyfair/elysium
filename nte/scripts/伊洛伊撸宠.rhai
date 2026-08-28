@@ -30,7 +30,7 @@ if team[0].name() == target {
     exit();
 }
 
-travel("绘空町维特海默塔");
+teleport("绘空町维特海默塔");
 lstick(-24000, -26000, 1.1);
 lstick();
 for i in 0..3 {

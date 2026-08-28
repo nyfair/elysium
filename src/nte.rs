@@ -289,7 +289,6 @@ fn locate(
     }
     k!(pad).click(A, 0.3, 1.7);
     k!(pad).click(B, 0.1, 0.3);
-    k!(pad).click(A, 0.3, 0.2);
     true
 }
 
@@ -303,6 +302,7 @@ fn teleport(
     index: i64,
 ) -> bool {
     if !locate(vision, ocr, pad, tp, target_area, type_idx, index) { return false }
+    k!(pad).click(A, 0.3, 0.2);
     k!(pad).click(A, 0.3, 0.2);
     k!(pad).click(A, 0.3, 0.2);
     k!(pad).click(A, 0.5, 4.);

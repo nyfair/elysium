@@ -1,0 +1,14 @@
+locate("绘空町", 2, 5);
+lstick(14000, -10000, 0.2);
+lstick();
+click(A, 0.3, 0.2);
+click(A, 0.3, 0.2);
+click(A, 0.5, 4.);
+wait_loading();
+press(LB);
+click(X);
+release(LB, 2.0);
+click(RB);
+click(Y, 0.1, 1.0);
+click(B);
+click(B);
