@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::vision::{self, AssetMap, Vision, get_pixel, ncc_match, pixel_equal, pixel_like, scale_roi};
+use crate::vision::{AssetMap, BASE_WIDTH, Vision, get_pixel, ncc_match, pixel_equal, pixel_like, scale_roi};
 use crate::input::{Button, Gamepad};
 use crate::{Args, k};
 #[cfg(feature = "ocr")]
@@ -224,7 +224,7 @@ pub fn new_engine(
     });
     let v = vision.clone();
     engine.register_fn("res_scale", move || -> Dynamic {
-        (v.get_dimension().0 as f64 / vision::BASE_WIDTH).into()
+        (v.get_dimension().0 as f64 / BASE_WIDTH).into()
     });
 
     let p = pad.clone();
