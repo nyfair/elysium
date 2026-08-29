@@ -32,7 +32,7 @@ if team[0].name() == target {
 
 teleport("绘空町维特海默塔");
 lstick(-24000, -26000, 1.1);
-lstick();
+lstick(0, 0, 0.2);
 for i in 0..3 {
     let t = ocr(shot(), 780, 360, 64, 64);
     if t.contains("抚摸") {

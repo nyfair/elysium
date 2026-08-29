@@ -31,8 +31,8 @@ static FRAME_SEQ: AtomicU64 = AtomicU64::new(0);
 static SHARED: Mutex<Option<Arc<Mutex<FrameBuf>>>> = Mutex::new(None);
 static EPOCH: AtomicU64 = AtomicU64::new(0);
 
-const BASE_WIDTH: f64 = 1280.;
-const BASE_HEIGHT: f64 = 720.;
+pub const BASE_WIDTH: f64 = 1280.;
+pub const BASE_HEIGHT: f64 = 720.;
 
 fn fast_resize(img: &DynamicImage, new_w: u32, new_h: u32, alg: ResizeAlg) -> DynamicImage {
     let converted: DynamicImage;

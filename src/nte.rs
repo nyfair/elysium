@@ -247,6 +247,7 @@ fn locate(
         return false;
     };
     k!(pad).click(BACK, 0.1, 1.7);
+    k!(pad).press(RT, 0.);
     k!(pad).click(RB, 0.1, 0.3);
     let img = match vision.shot() {
         Ok(i) => i,
@@ -289,6 +290,7 @@ fn locate(
     }
     k!(pad).click(A, 0.3, 1.7);
     k!(pad).click(B, 0.1, 0.3);
+    k!(pad).release(RT, 0.);
     true
 }
 
