@@ -7,6 +7,23 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: full
+            archive: elysium-full.7z
+            cargo_args: ""
+            files: "*.exe dna nte *.md user*"
+          - name: dna
+            archive: elysium-dna.7z
+            cargo_args: "--no-default-features --features dna"
+            files: "*.exe dna *.md user-dna-scripts"
+          - name: nte
+            archive: elysium-nte.7z
+            cargo_args: "--no-default-features --features nte"
+            files: "*.exe nte *.md user-nte-scripts"
+
     steps:
     - name: Prepare
       run: git config --global core.autocrlf false
@@ -24,25 +41,15 @@ jobs:
         7z x mnn_bindings.7z -o"rust-paddle-ocr" -aoa
         rustup set profile minimal
         rustup update
-        cargo build --release
+        cargo build --release ${{ matrix.cargo_args }}
         move target\release\*.exe .
         upx --ultra-brute *.exe
-        7z a elysium-full.7z *.exe dna nte *.md user*
-        cargo build --release --no-default-features --features dna
-        del *.exe
-        move target\release\*.exe .
-        upx --ultra-brute *.exe
-        7z a elysium-dna.7z *.exe dna *.md user-dna-scripts
-        cargo build --release --no-default-features --features nte
-        del *.exe
-        move target\release\*.exe .
-        upx --ultra-brute *.exe
-        7z a elysium-nte.7z *.exe nte *.md user-nte-scripts
+        7z a ${{ matrix.archive }} ${{ matrix.files }}
+
     - name: Upload
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: elysium*.7z
+        file: ${{ matrix.archive }}
         tag: latest
         overwrite: true
-        file_glob: true
