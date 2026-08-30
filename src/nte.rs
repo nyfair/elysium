@@ -246,7 +246,6 @@ fn locate(
         eprintln!("teleport: 未知区域：{target_area}");
         return false;
     };
-    k!(pad).click(BACK, 0.1, 1.7);
     k!(pad).press(RT, 0.);
     k!(pad).click(RB, 0.1, 0.3);
     let img = match vision.shot() {
@@ -303,6 +302,7 @@ fn teleport(
     type_idx: i64,
     index: i64,
 ) -> bool {
+    k!(pad).click(BACK, 0.1, 1.7);
     if !locate(vision, ocr, pad, tp, target_area, type_idx, index) { return false }
     k!(pad).click(A, 0.3, 0.2);
     k!(pad).click(A, 0.3, 0.2);
@@ -410,6 +410,17 @@ pub fn setup_engine(
     let t = tp.clone();
     engine.register_fn("teleport", move |area: &str, type_idx: i64, index: i64| -> bool {
         teleport(&v, &o, &p, &t, area, type_idx, index)
+    });
+    let v = vision.clone();
+    let p = pad.clone();
+    let o = ocr.clone();
+    let t = tp.clone();
+    engine.register_fn("locate", move |target: &str| -> bool {
+        let Some(pt) = t.points.get(target) else {
+            eprintln!("locate: 未知地点：{target}");
+            return false;
+        };
+        locate(&v, &o, &p, &t, &pt.area, pt.r#type, pt.index)
     });
     let v = vision.clone();
     let p = pad.clone();

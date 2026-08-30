@@ -9,6 +9,6 @@ press(LB);
 click(X);
 release(LB, 2.0);
 click(RB);
-click(Y, 0.1, 2.0);
-click(B);
+click(Y, 0.1, 2.5);
+click(B, 0.1, 0.3);
 click(B);

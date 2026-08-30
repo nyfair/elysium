@@ -1,9 +1,9 @@
 teleport("魔女之家");
-click(RS, 0.1, 0.4);
+click(RS, 0.1, 0.9);
 lstick(0, 30000, 0.2);
 click(RB, 0.1, 0.7);
 click(RB, 0.1, 2.0);
-lstick(0, 0, 5.0);
+lstick(0, 0, 4.0);
 let t = ocr(shot(), 796, 379, 40, 26);
 if t.contains("黑羽") {
     click(B, 0.1, 2.0);

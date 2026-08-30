@@ -15,5 +15,6 @@ click(A, 0.1, 1.5);
 click(A);
 click(A, 0.1, 1.5);
 click(B);
+click(B, 0.1, 1.1);
 click(B, 0.1, 0.6);
 click(B, 0.1, 0.6);
