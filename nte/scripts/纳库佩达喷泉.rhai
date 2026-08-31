@@ -1,31 +1,9 @@
-fn find_fountain(img, roi_x, roi_y, roi_w, roi_h, r, g, b) {
-    let y = roi_y + roi_h;
-    while y >= roi_y {
-        let count = 0;
-        let start_x = 0;
-        let x = roi_x;
-        while x <= roi_x + roi_w {
-            if pixel_equal(img, x, y, r, g, b) {
-                if count == 0 {
-                    start_x = x;
-                }
-                count += 1;
-            } else {
-                if count >= 10 {
-                    break
-                }
-                count = 0;
-            }
-            x += 1;
-        }
-        if count >= 10 {
-            let center_x = start_x + count / 2;
-            return [center_x, y, count]
-        }
-        y -= 1;
-    }
-    [0, 0, 0]
-}
+// {
+//   "author": "",
+//   "desc": "默认许愿，BOOST为1捞硬币",
+//   "loop": false,
+//   "timeout": 86400
+// }
 
 click(BACK, 0.1, 1.7);
 locate("纳库佩达之池");
@@ -48,7 +26,7 @@ loop {
     click(RB, 0.1, 0.4);
     click(A, 0.1, 0.4);
     click(A, 0.1, 0.8);
-    let f = find_fountain(shot(), 98, 70, 1052, 570, 255, 231, 99);
+    let f = find_line(shot(), 98, 70, 1052, 570, 255, 231, 99, 0, false, false, true, 10, 20);
     if f[2] > 14 {
         lstick();
         cx = f[0];
@@ -70,7 +48,7 @@ loop {
         break
     }
     rstick();
-    cx = find_fountain(shot(), 98, 70, 1052, 570, 255, 231, 99)[0];
+    cx = find_line(shot(), 98, 70, 1052, 570, 255, 231, 99, 0, false, false, true, 10, 20)[0];
 }
 lstick(0, 30000, 0.1);
 loop {
@@ -82,8 +60,8 @@ loop {
         break
     }
 }
-click(B, 0.1, 0.4);
-click(A, 0.1, 1.5);
-click(A, 0.1, 1.5);
-click(B, 0.1, 1.0);
-click(B);
+click(B, 0.1, 3.0);
+for b in 0..BOOST { click(DOWN); }
+for i in 0..20 {
+    click(A);
+}

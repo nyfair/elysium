@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::vision::{AssetMap, BASE_WIDTH, Vision, get_pixel, ncc_match, pixel_equal, pixel_like, scale_roi};
+use crate::vision::{AssetMap, BASE_WIDTH, Vision, find_line, get_pixel, ncc_match, pixel_equal, pixel_like, scale_roi};
 use crate::input::{Button, Gamepad};
 use crate::{Args, k};
 #[cfg(feature = "ocr")]
@@ -183,26 +183,33 @@ pub fn new_engine(
             Err(e) => Err(format!("load_img 失败：{e}").into()),
         }
     });
-    engine.register_fn("save", move |img: Frame, path: &str| {
+    engine.register_fn("save", |img: Frame, path: &str| {
         let i = k!(img);
         i.save(path).unwrap();
     });
-    engine.register_fn("crop", move |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Frame {
+    engine.register_fn("crop", |img: Frame, x: i64, y: i64, w: i64, h: i64| -> Frame {
         let orig = k!(img);
         let (rx, ry, rw, rh) = scale_roi(orig.width(), orig.height(), (x as u32, y as u32, w as u32, h as u32));
         let crop = image::imageops::crop_imm(&*orig, rx, ry, rw, rh).to_image();
         Arc::new(Mutex::new(crop))
     });
-    engine.register_fn("get_pixel", move |img: Frame, x: i64, y: i64| -> Array {
+    engine.register_fn("get_pixel", |img: Frame, x: i64, y: i64| -> Array {
         let p = get_pixel(&k!(img), x as u32, y as u32);
         vec![(p[0] as i64).into(), (p[1] as i64).into(), (p[2] as i64).into()]
     });
-    engine.register_fn("pixel_equal", move |img: Frame, x: i64, y: i64, r: i64, g: i64, b: i64| -> bool {
+    engine.register_fn("pixel_equal", |img: Frame, x: i64, y: i64, r: i64, g: i64, b: i64| -> bool {
         pixel_equal(&k!(img), x as u32, y as u32, r as u8, g as u8, b as u8)
     });
-    engine.register_fn("pixel_like", move |img: Frame, x: i64, y: i64, r: i64, g: i64, b: i64, v: i64| -> bool {
+    engine.register_fn("pixel_like", |img: Frame, x: i64, y: i64, r: i64, g: i64, b: i64, v: i64| -> bool {
         pixel_like(&k!(img), x as u32, y as u32, r as u8, g as u8, b as u8, v as u8)
     });
+    engine.register_fn("find_line", |img: Frame, x: i64, y: i64, w: i64, h: i64, r: i64, g: i64, b: i64,
+         threshold: i64, left_to_right: bool, up_to_bottom: bool, is_horizontal: bool, min: i64, max: i64| -> Array {
+            let (cx, cy, count) = find_line(&k!(img), x, y, w, h, r, g, b,
+                threshold, left_to_right, up_to_bottom, is_horizontal, min, max);
+            vec![cx.into(), cy.into(), count.into()]
+        },
+    );
     let a = assets.clone();
     engine.register_fn("ncc_match", move |img: Frame, tplt: &str| -> Array {
         let img = k!(img);

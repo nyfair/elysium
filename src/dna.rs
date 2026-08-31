@@ -21,8 +21,8 @@ pub fn setup_engine(
     let p = pad.clone();
     let pa = state.pause.clone();
     engine.register_fn("run_combo", move |s: &str| run_combo(s, &p, &pa));
-    engine.register_fn("task_started", move |img: Frame| -> bool { task_started(img).unwrap() });
-    engine.register_fn("task_ended", move |img: Frame| -> bool { task_ended(img).unwrap() });
+    engine.register_fn("task_started", |img: Frame| -> bool { task_started(img).unwrap() });
+    engine.register_fn("task_ended", |img: Frame| -> bool { task_ended(img).unwrap() });
 }
 
 pub fn run(

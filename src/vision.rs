@@ -331,6 +331,82 @@ pub fn pixel_like(img: &ImageBuffer<Rgb<u8>, Vec<u8>>, x: u32, y: u32, r: u8, g:
         && (p[2] as i16 - b as i16).abs() <= v as i16
 }
 
+pub fn find_line(
+    img: &ImageBuffer<Rgb<u8>, Vec<u8>>,
+    roi_x: i64,
+    roi_y: i64,
+    roi_w: i64,
+    roi_h: i64,
+    r: i64,
+    g: i64,
+    b: i64,
+    threshold: i64,
+    left_to_right: bool,
+    up_to_bottom: bool,
+    is_horizontal: bool,
+    min: i64,
+    max: i64,
+) -> (i64, i64, i64) {
+    let w = img.width();
+    let h = img.height();
+    let (cr, cg, cb) = (r as u8, g as u8, b as u8);
+    let tv = threshold as u8;
+    let (inner_lo, inner_hi, inner_pos) = if is_horizontal {
+        (roi_x, roi_x + roi_w, left_to_right)
+    } else {
+        (roi_y, roi_y + roi_h, up_to_bottom)
+    };
+    let (outer_lo, outer_hi, outer_pos) = if is_horizontal {
+        (roi_y, roi_y + roi_h, up_to_bottom)
+    } else {
+        (roi_x, roi_x + roi_w, left_to_right)
+    };
+    let inner_done = move |i: i64| if inner_pos { i > inner_hi } else { i < inner_lo };
+    let outer_done = move |o: i64| if outer_pos { o > outer_hi } else { o < outer_lo };
+    let emit = move |count: i64, start: i64, outer: i64| -> Option<(i64, i64, i64)> {
+        if count > 0 && min <= count && count <= max {
+            let center = if inner_pos { start + count / 2 } else { start - count / 2 };
+            Some(if is_horizontal {
+                (center, outer, count)
+            } else {
+                (outer, center, count)
+            })
+        } else {
+            None
+        }
+    };
+    let mut outer = if outer_pos { outer_lo } else { outer_hi };
+    while !outer_done(outer) {
+        let mut count = 0;
+        let mut start = 0;
+        let mut inner = if inner_pos { inner_lo } else { inner_hi };
+        while !inner_done(inner) {
+            let (x, y) = if is_horizontal { (inner, outer) } else { (outer, inner) };
+            let (px, py) = scale_coords(w, h, x as u32, y as u32);
+            let p = img.get_pixel(px, py);
+            if (p[0] as i16 - cr as i16).abs() <= tv as i16
+                && (p[1] as i16 - cg as i16).abs() <= tv as i16
+                && (p[2] as i16 - cb as i16).abs() <= tv as i16
+            {
+                if count == 0 {
+                    start = inner;
+                }
+                count += 1;
+            } else if let Some(v) = emit(count, start, outer) {
+                return v;
+            } else {
+                count = 0;
+            }
+            inner += if inner_pos { 1 } else { -1 };
+        }
+        if let Some(v) = emit(count, start, outer) {
+            return v;
+        }
+        outer += if outer_pos { 1 } else { -1 };
+    }
+    (0, 0, 0)
+}
+
 pub fn ncc_match(
     background: &ImageBuffer<Rgb<u8>, Vec<u8>>,
     template: &GrayImage,

@@ -1,9 +1,10 @@
 // {
 //   "author": "",
-//   "desc": "100点日活",
+//   "desc": "探索指南+环期赏令",
 //   "loop": false,
 //   "timeout": 90
 // }
+
 click(LB);
 press(LB);
 rstick(0, 20000, 0.1);
@@ -22,5 +23,16 @@ click(A);
 click(A, 0.1, 1.5);
 click(B);
 click(B, 0.1, 1.1);
+click(B, 0.1, 0.6);
+click(B, 0.1, 0.6);
+
+click(RIGHT);
+click(RIGHT);
+click(RIGHT);
+click(A, 0.1, 0.6);
+click(DOWN);
+click(Y, 0.1, 1.5);
+click(B);
+click(B, 0.1, 0.6);
 click(B, 0.1, 0.6);
 click(B, 0.1, 0.6);

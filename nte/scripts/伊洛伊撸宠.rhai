@@ -4,6 +4,7 @@
 //   "loop": false,
 //   "timeout": 90
 // }
+
 let img = shot();
 let team = get_team(img);
 let target = "伊洛伊";
@@ -30,5 +31,8 @@ for i in 0..3 {
         click(A, 0.1, 1.0);
         click(B, 0.1, 0.5);
         click(B, 0.1, 1.5);
+    } else {
+        print("没有宠物，请调整交通系统密度")
+        break
     }
 }

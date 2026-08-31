@@ -4,6 +4,7 @@
 //   "loop": false,
 //   "timeout": 86400
 // }
+
 fn check_receive(img) {
     !pixel_like(img, 1225, 300, 245, 245, 245, 10)
         && pixel_like(img, 1225, 388, 245, 245, 245, 10)
