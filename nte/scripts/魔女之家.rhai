@@ -1,3 +1,9 @@
+// {
+//   "author": "",
+//   "desc": "魔女之家Buff",
+//   "loop": false,
+//   "timeout": 90
+// }
 teleport("魔女之家");
 click(RS, 0.1, 0.9);
 lstick(0, 30000, 0.2);

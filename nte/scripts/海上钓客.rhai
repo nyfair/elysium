@@ -1,6 +1,6 @@
 // {
 //   "author": "",
-//   "desc": "海上钓客",
+//   "desc": "自动钓鱼",
 //   "loop": false,
 //   "timeout": 86400
 // }

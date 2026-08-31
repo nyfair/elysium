@@ -1,3 +1,9 @@
+// {
+//   "author": "",
+//   "desc": "100点日活",
+//   "loop": false,
+//   "timeout": 90
+// }
 click(LB);
 press(LB);
 rstick(0, 20000, 0.1);

@@ -1,3 +1,9 @@
+// {
+//   "author": "",
+//   "desc": "自动排球等级/都市活力",
+//   "loop": false,
+//   "timeout": 86400
+// }
 fn check_receive(img) {
     !pixel_like(img, 1225, 300, 245, 245, 245, 10)
         && pixel_like(img, 1225, 388, 245, 245, 245, 10)

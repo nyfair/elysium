@@ -1,3 +1,9 @@
+// {
+//   "author": "",
+//   "desc": "一键领取环期",
+//   "loop": false,
+//   "timeout": 90
+// }
 click(LB);
 press(LB);
 rstick(0, 20000, 0.1);

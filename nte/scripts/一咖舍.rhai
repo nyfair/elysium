@@ -1,3 +1,9 @@
+// {
+//   "author": "",
+//   "desc": "咖啡店收菜",
+//   "loop": false,
+//   "timeout": 90
+// }
 click(LB);
 press(LB);
 rstick(20000, -20000, 0.1);

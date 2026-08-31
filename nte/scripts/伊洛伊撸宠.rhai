@@ -1,21 +1,11 @@
+// {
+//   "author": "",
+//   "desc": "每日三次抚摸宠物",
+//   "loop": false,
+//   "timeout": 90
+// }
 let img = shot();
 let team = get_team(img);
-print(team[0].name());
-print(team[0].element());
-print(team[0].tag());
-print(team[0].debug_info());
-print(team[1].name());
-print(team[1].element());
-print(team[1].tag());
-print(team[1].debug_info());
-print(team[2].name());
-print(team[2].element());
-print(team[2].tag());
-print(team[2].debug_info());
-print(team[3].name());
-print(team[3].element());
-print(team[3].tag());
-print(team[3].debug_info());
 let target = "伊洛伊";
 if team[0].name() == target {
     click(UP);
