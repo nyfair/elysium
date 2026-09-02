@@ -34,7 +34,7 @@ static EPOCH: AtomicU64 = AtomicU64::new(0);
 pub const BASE_WIDTH: f64 = 1280.;
 pub const BASE_HEIGHT: f64 = 720.;
 
-fn fast_resize(img: &DynamicImage, new_w: u32, new_h: u32, alg: ResizeAlg) -> DynamicImage {
+pub fn fast_resize(img: &DynamicImage, new_w: u32, new_h: u32, alg: ResizeAlg) -> DynamicImage {
     let converted: DynamicImage;
     let (src, pixel_type) = match img.pixel_type() {
         Some(PixelType::U8x3) => (img, PixelType::U8x3),

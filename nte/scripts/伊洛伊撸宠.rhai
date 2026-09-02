@@ -32,7 +32,7 @@ for i in 0..3 {
         click(B, 0.1, 0.5);
         click(B, 0.1, 1.5);
     } else {
-        print("没有宠物，请调整交通系统密度")
+        print("没有宠物，请调整交通系统密度");
         break
     }
 }
