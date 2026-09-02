@@ -326,65 +326,6 @@ fn wait_loading(vision: &Vision) -> bool {
     false
 }
 
-fn treasure_morph(buf: &mut [u8], tmp: &mut [u8], w: usize, h: usize, r: usize, dilate: bool) {
-    for y in 0..h {
-        let src = &buf[y * w..(y + 1) * w];
-        let dst = &mut tmp[y * w..(y + 1) * w];
-        for x in 0..w {
-            dst[x] = if dilate {
-                let x0 = x.saturating_sub(r);
-                let x1 = (x + r + 1).min(w);
-                let mut v = 0;
-                for i in x0..x1 {
-                    if src[i] != 0 {
-                        v = 1;
-                        break;
-                    }
-                }
-                v
-            } else {
-                let x0 = x.saturating_sub(r);
-                let x1 = (x + r + 1).min(w);
-                let mut v = 1;
-                for i in x0..x1 {
-                    if src[i] == 0 {
-                        v = 0;
-                        break;
-                    }
-                }
-                v
-            };
-        }
-    }
-    for x in 0..w {
-        for y in 0..h {
-            buf[y * w + x] = if dilate {
-                let y0 = y.saturating_sub(r);
-                let y1 = (y + r + 1).min(h);
-                let mut v = 0;
-                for j in y0..y1 {
-                    if tmp[j * w + x] != 0 {
-                        v = 1;
-                        break;
-                    }
-                }
-                v
-            } else {
-                let y0 = y.saturating_sub(r);
-                let y1 = (y + r + 1).min(h);
-                let mut v = 1;
-                for j in y0..y1 {
-                    if tmp[j * w + x] == 0 {
-                        v = 0;
-                        break;
-                    }
-                }
-                v
-            };
-        }
-    }
-}
-
 fn find_treasure(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> Array {
     let owned;
     let work: &ImageBuffer<Rgb<u8>, Vec<u8>> =
@@ -404,11 +345,13 @@ fn find_treasure(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> Array {
     let w = BASE_WIDTH as usize;
     let h = BASE_HEIGHT as usize;
     let data = work.as_raw();
-    let mut raw = vec![0u8; w * h];
+    let mut purp = vec![0u8; w * h];
+    let mut dark = vec![0u8; w * h];
     for (i, px) in data.chunks_exact(3).enumerate() {
         let r = px[0] as i16;
         let g = px[1] as i16;
         let b = px[2] as i16;
+        dark[i] = ((r + g + b) / 3 < 75) as u8;
         if r >= 150 && r > b + 20 && b > g + 20 {
             let (rf, gf, bf) = (r as f64, g as f64, b as f64);
             let d = rf - gf;
@@ -416,135 +359,129 @@ fn find_treasure(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> Array {
             if s >= 80. && s <= 210. {
                 let hue = 360. + 60. * (gf - bf) / d;
                 if hue >= 310. && hue <= 352. {
-                    raw[i] = 1;
+                    purp[i] = 1;
                 }
             }
         }
     }
-    let mut mask = raw.clone();
-    let mut tmp = vec![0u8; w * h];
-    treasure_morph(&mut mask, &mut tmp, w, h, 6, true);
-    treasure_morph(&mut mask, &mut tmp, w, h, 6, false);
-    treasure_morph(&mut mask, &mut tmp, w, h, 3, true);
-    let mut labels = vec![0u32; w * h];
-    let mut areas = vec![0u32];
-    let mut stack = Vec::new();
-    for start in 0..w * h {
-        if mask[start] == 0 || labels[start] != 0 {
-            continue;
+    let at = |m: &[u8], x: i64, y: i64| -> u8 {
+        if x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h {
+            m[y as usize * w + x as usize]
+        } else {
+            0
         }
-        let id = areas.len() as u32;
-        areas.push(0);
-        labels[start] = id;
-        stack.clear();
-        stack.push(start);
-        while let Some(i) = stack.pop() {
-            areas[id as usize] += 1;
-            let x = i % w;
-            let y = i / w;
-            for yy in y.saturating_sub(1)..=(y + 1).min(h - 1) {
-                for xx in x.saturating_sub(1)..=(x + 1).min(w - 1) {
-                    let j = yy * w + xx;
-                    if mask[j] != 0 && labels[j] == 0 {
-                        labels[j] = id;
-                        stack.push(j);
+    };
+    let d = |x: i64, y: i64| at(&dark, x, y) != 0;
+    let p = |x: i64, y: i64| at(&purp, x, y) != 0;
+    let is_l = |x: i64, y: i64| -> bool {
+        p(x, y)
+            && !p(x - 1, y)
+            && (d(x - 1, y) || d(x - 2, y))
+            && (d(x, y - 1) || d(x, y - 2) || d(x, y - 3) || d(x + 1, y - 1) || d(x + 1, y - 2))
+            && (d(x, y + 1) || d(x, y + 2) || d(x, y + 3) || d(x + 1, y + 1) || d(x + 1, y + 2))
+    };
+    let is_r = |x: i64, y: i64| -> bool {
+        p(x, y)
+            && !p(x + 1, y)
+            && (d(x + 1, y) || d(x + 2, y))
+            && (d(x, y - 1) || d(x, y - 2) || d(x, y - 3) || d(x - 1, y - 1) || d(x - 1, y - 2))
+            && (d(x, y + 1) || d(x, y + 2) || d(x, y + 3) || d(x - 1, y + 1) || d(x - 1, y + 2))
+    };
+    let is_u = |x: i64, y: i64| -> bool {
+        p(x, y)
+            && !p(x, y - 1)
+            && (d(x, y - 1) || d(x, y - 2) || d(x - 1, y - 1) || d(x + 1, y - 1))
+            && (d(x, y + 1)
+                || d(x, y + 2)
+                || d(x, y + 3)
+                || d(x - 1, y + 1)
+                || d(x - 1, y + 2)
+                || d(x + 1, y + 1)
+                || d(x + 1, y + 2))
+    };
+    let is_d = |x: i64, y: i64| -> bool {
+        p(x, y)
+            && !p(x, y + 1)
+            && (d(x, y + 1) || d(x, y + 2) || d(x - 1, y + 1) || d(x + 1, y + 1))
+            && (d(x, y - 1)
+                || d(x, y - 2)
+                || d(x, y - 3)
+                || d(x - 1, y - 1)
+                || d(x - 1, y - 2)
+                || d(x + 1, y - 1)
+                || d(x + 1, y - 2))
+    };
+    let mut found: Vec<(i64, i64, i64, i64, i64, i64, i64, i64)> = Vec::new();
+    for ly in 5..h as i64 - 5 {
+        let mut lx = 5i64;
+        while lx < w as i64 - 5 {
+            if !is_l(lx, ly) {
+                lx += 1;
+                continue;
+            }
+            for rx in lx + 14..lx + 25 {
+                if rx >= w as i64 - 3 {
+                    break;
+                }
+                for ry in (ly - 2).max(4)..(ly + 3).min(h as i64 - 4) {
+                    if !is_r(rx, ry) {
+                        continue;
+                    }
+                    let hspan = rx - lx + 1;
+                    if !(15..=22).contains(&hspan) {
+                        continue;
+                    }
+                    let cx = (lx + rx) / 2;
+                    let cy = (ly + ry) / 2;
+                    let mut found_u = false;
+                    for uy in (cy - hspan / 2 - 4).max(4)..cy - hspan / 2 + 4 {
+                        if uy >= h as i64 - 3 {
+                            break;
+                        }
+                        for ux in cx - 3..cx + 4 {
+                            if !is_u(ux, uy) {
+                                continue;
+                            }
+                            for dy2 in 2 * cy - uy - 2..2 * cy - uy + 3 {
+                                if dy2 >= 4 && dy2 < h as i64 - 4 && is_d(ux, dy2) {
+                                    found.push((lx, ly, rx, ry, ux, uy, ux, dy2));
+                                    found_u = true;
+                                    break;
+                                }
+                            }
+                            if found_u {
+                                break;
+                            }
+                        }
+                        if found_u {
+                            break;
+                        }
                     }
                 }
             }
+            lx += 1;
         }
     }
-    let nc = areas.len();
-    let mut cnt = vec![0u32; nc];
-    let mut sum_r = vec![0u64; nc];
-    let mut sum_g = vec![0u64; nc];
-    let mut sum_b = vec![0u64; nc];
-    let mut top = vec![[i32::MAX; 2]; nc];
-    let mut bot = vec![[i32::MIN; 2]; nc];
-    let mut lft = vec![[i32::MAX; 2]; nc];
-    let mut rgt = vec![[i32::MIN; 2]; nc];
-    for i in 0..w * h {
-        if raw[i] == 0 {
+    let mut best: Option<(i64, i64, i64)> = None;
+    let mut seen: Vec<(i64, i64)> = Vec::new();
+    for f in &found {
+        let cxx = (f.0 + f.2) / 2;
+        let cyy = (f.1 + f.3) / 2;
+        if seen.iter().any(|&(sx, sy)| (sx - cxx).abs() <= 1 && (sy - cyy).abs() <= 1) {
             continue;
         }
-        let l = labels[i] as usize;
-        if l == 0 {
-            continue;
-        }
-        cnt[l] += 1;
-        let x = (i % w) as i32;
-        let y = (i / w) as i32;
-        let o = i * 3;
-        sum_r[l] += data[o] as u64;
-        sum_g[l] += data[o + 1] as u64;
-        sum_b[l] += data[o + 2] as u64;
-        if y < top[l][1] {
-            top[l] = [x, y];
-        }
-        if y > bot[l][1] {
-            bot[l] = [x, y];
-        }
-        if x < lft[l][0] {
-            lft[l] = [x, y];
-        }
-        if x > rgt[l][0] {
-            rgt[l] = [x, y];
-        }
-    }
-    let mut best: Option<(i64, i64, f64)> = None;
-    for l in 1..nc {
-        if areas[l] < 120 || areas[l] > 1200 || cnt[l] < 8 {
-            continue;
-        }
-        let (tx, ty) = (top[l][0], top[l][1]);
-        let (bx, by) = (bot[l][0], bot[l][1]);
-        let (lx, ly) = (lft[l][0], lft[l][1]);
-        let (rx, ry) = (rgt[l][0], rgt[l][1]);
-        let rw = rx - lx + 1;
-        let rh = by - ty + 1;
-        if rw < 14 || rw > 32 || rh < 14 || rh > 32 {
-            continue;
-        }
-        let align_x = (tx - bx).abs();
-        let align_y = (ly - ry).abs();
-        let wh = (rw - rh).abs();
-        if align_x > 4 || align_y > 4 || wh > 3 {
-            continue;
-        }
-        let mut hits = 0;
-        let probes = [
-            [(tx, ty - 1), (tx, ty - 2)],
-            [(bx, by + 1), (bx, by + 2)],
-            [(lx - 1, ly), (lx - 2, ly)],
-            [(rx + 1, ry), (rx + 2, ry)],
-        ];
-        for dir in probes {
-            for (px, py) in dir {
-                if px >= 0 && py >= 0 && px < w as i32 && py < h as i32 {
-                    let o = ((py as usize) * w + px as usize) * 3;
-                    if data[o] < 50 && data[o + 1] < 50 && data[o + 2] < 50 {
-                        hits += 1;
-                        break;
-                    }
-                }
-            }
-        }
-        let n = cnt[l] as f64;
-        let mr = sum_r[l] as f64 / n;
-        let mg = sum_g[l] as f64 / n;
-        let mb = sum_b[l] as f64 / n;
-        let dist =
-            ((mr - 255.).powi(2) + (mg - 120.).powi(2) + (mb - 185.).powi(2)).sqrt();
-        let score = hits as f64 * 30. - dist * 1.5 - wh as f64 * 5. - align_x as f64 * 3.;
-        let cx = ((lx + rx) / 2) as i64;
-        let cy = ((ty + by) / 2) as i64;
+        seen.push((cxx, cyy));
+        let hspan = f.2 - f.0 + 1;
+        let vspan = f.7 - f.5 + 1;
+        let score = 100 - (hspan - vspan).abs();
         match best {
             Some((_, _, bs)) if bs >= score => {}
-            _ => best = Some((cx, cy, score)),
+            _ => best = Some((cxx, cyy, score)),
         }
     }
     match best {
         Some((cx, cy, score)) => vec![cx.into(), cy.into(), score.into()],
-        None => vec![0i64.into(), 0i64.into(), 0f64.into()],
+        None => vec![0i64.into(), 0i64.into(), 0i64.into()],
     }
 }
 

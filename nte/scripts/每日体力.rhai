@@ -6,8 +6,4 @@
 // }
 
 let img = shot();
-// let img = load("3.png");
-let now = timestamp();
 print(find_treasure(img));
-print(now.elapsed);
-wait(3.0);
