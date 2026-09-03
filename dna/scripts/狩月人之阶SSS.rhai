@@ -23,4 +23,4 @@ rstick();
 click(A, 0.1, 0.5);
 click(LS, 0.1, 0.6);
 click(X, 0.1, 0.5);
-loop { run_combo("e1"); }
+loop { run_combo("e0"); }

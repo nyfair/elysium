@@ -127,6 +127,7 @@ pub fn new_engine(
     ocr: &Arc<Ocr>,
 ) -> Engine {
     let mut engine = Engine::new();
+    engine.set_max_expr_depths(128, 64);
     engine.register_type_with_name::<Button>("Button");
     let mut module = Module::new();
     for (name, btn) in [

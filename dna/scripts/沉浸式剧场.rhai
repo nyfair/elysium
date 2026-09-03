@@ -43,19 +43,14 @@ lstick(0, 10000, 0.35);
 rstick(0, 0, 2.7);
 lstick();
 print("push device");
-for i in 0..5 {
+for i in 0..3 {
     click(Y);
     lstick(0, 10000, 0.1);
     lstick();
 }
 
-run_combo("q1s3e1e1");
-let vitamin = 2;
+run_combo("q1e3e3");
 loop {
-    if vitamin < 1 {
-        run_combo("e1");
-        vitamin = 2;
-    }
     switch check() {
         2 => {
           lstick(0, 10000);
@@ -68,8 +63,7 @@ loop {
                 2 => lstick(0, 10000),
                 3 => lstick(0, -10000),
             }
-            run_combo("l7L0");
-            vitamin -= 1;
+            run_combo("e1");
         },
         0 => break,
     }
@@ -80,12 +74,7 @@ pad_reset();
 loop {
     if boss() {
         click(RS);
-        if vitamin < 1 {
-            run_combo("e1");
-            vitamin = 2;
-        }
-        run_combo("l3L0");
-        vitamin -= 1;
+        run_combo("e0");
     } else {
         wait(0.1);
     }
