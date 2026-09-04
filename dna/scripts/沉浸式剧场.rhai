@@ -13,10 +13,10 @@ fn task_ended(img) {
 }
 
 fn check() {
-    let img = shot();
-    if pixel_like(img, 491, 85, 0, 0, 0, 5) {
+    let f = find_line(shot(), 409, 72, 150, 15, 0, 0, 0, 0, true, true, true, 20, 148);
+    if f[1] > 77 {
         return 1
-    } else if pixel_equal(img, 425, 78, 0, 0, 0) {
+    } else if f[1] == 0 {
         return 0
     }
     return 2
@@ -49,10 +49,10 @@ for i in 0..3 {
     lstick();
 }
 
-run_combo("q1e3e3");
+run_combo("q3e1e1e1e1e1e1e1e1");
 loop {
     switch check() {
-        2 => {
+        0 => {
           lstick(0, 10000);
           wait(0.2);
         },
@@ -63,19 +63,20 @@ loop {
                 2 => lstick(0, 10000),
                 3 => lstick(0, -10000),
             }
-            run_combo("e1");
+            wait(1.0);
         },
-        0 => break,
+        2 => break,
     }
 }
 
 print("boss stage");
 pad_reset();
 loop {
-    if boss() {
+    if check() == 2 {
         click(RS);
         run_combo("e0");
     } else {
-        wait(0.1);
+        pad_reset();
+        wait(0.2);
     }
 }

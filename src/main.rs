@@ -74,6 +74,7 @@ impl GameType {
 pub struct Args {
     pub game: Option<GameType>,
     pub task: Option<String>,
+    pub exe: Option<String>,
     #[arg(short = 'p', long, num_args = 1..)]
     pub plan: Vec<String>,
     #[arg(short = 'b', long, default_value = "0")]
@@ -100,7 +101,18 @@ fn relaunch_as_admin() -> Result<()> {
     let exe = std::env::current_exe()?;
     let dir = std::env::current_dir()?;
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let params = args.join(" ");
+    let params = args
+        .iter()
+        .map(|a| {
+            if a.contains(' ') || a.contains('\t') {
+                format!("\"{}\"", a.replace('"', "\\\""))
+            } else {
+                a.clone()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    println!("提权命令行: {} {}", exe.to_string_lossy(), params);
     let runas = to_wide("runas");
     let exe_w = to_wide(&exe.to_string_lossy());
     let dir_w = to_wide(&dir.to_string_lossy());
@@ -126,12 +138,7 @@ fn main() -> Result<()> {
         let _ = WindowsAndMessaging::SetProcessDPIAware();
     }
     let args = Args::parse();
-
-    let needs_priv = match &args.game {
-        Some(_) => !matches!(args.task.as_deref(), Some("shot") | Some("act")),
-        None => true,
-    };
-    if needs_priv && !is_admin() {
+    if !is_admin() {
         println!("检测到沒有管理员权限，正在请求...");
         relaunch_as_admin()?;
         return Ok(());
@@ -162,6 +169,15 @@ fn main() -> Result<()> {
         vision::activate_window(&window);
         println!("窗口已激活");
         return Ok(());
+    }
+
+    if task == "launch" {
+        return match game {
+            #[cfg(feature = "dna")]
+            GameType::Dna => dna::launch(&args),
+            #[cfg(feature = "nte")]
+            GameType::Nte => nte::launch(&args),
+        };
     }
 
     run_cli(&args, game, task)
@@ -265,7 +281,7 @@ fn run_task(res: &CliResources, args: &Args, task: &str) -> Result<()> {
     Ok(())
 }
 
-fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
+pub(crate) fn run_cli(args: &Args, game: GameType, task: &str) -> Result<()> {
     let res = init_cli(game)?;
     run_task(&res, args, task)
 }
@@ -308,5 +324,48 @@ fn script_path(game: &str, task: &str) -> std::path::PathBuf {
         custom
     } else {
         std::path::Path::new(game).join("scripts").join(format!("{task}.rhai"))
+    }
+}
+
+pub(crate) struct LaunchConfig {
+    pub exec: String,
+    pub login: String,
+}
+
+pub(crate) fn load_launch_config(game: &str) -> Result<LaunchConfig> {
+    let path = format!("user-{game}-scripts/config.json");
+    let text =
+        std::fs::read_to_string(&path).with_context(|| format!("读取 {path} 失败（请先配置游戏路径）"))?;
+    let v: serde_json::Value = serde_json::from_str(&text).context("解析 config.json 失败")?;
+    Ok(LaunchConfig {
+        exec: v["exec"].as_str().unwrap_or("").to_string(),
+        login: v["login"].as_str().unwrap_or("").to_string(),
+    })
+}
+
+pub(crate) fn save_launch_config(game: &str, exec: &str, login: &str) -> Result<()> {
+    let path = format!("user-{game}-scripts/config.json");
+    let v = serde_json::json!({ "exec": exec, "login": login });
+    std::fs::write(&path, serde_json::to_string_pretty(&v)?).with_context(|| format!("写入 {path} 失败"))?;
+    Ok(())
+}
+
+pub(crate) fn wait_game_window(
+    title: &str,
+    child: &mut std::process::Child,
+    timeout_secs: u64,
+) -> Result<windows_capture::window::Window> {
+    let deadline = std::time::Instant::now() + Duration::from_secs(timeout_secs);
+    loop {
+        if let Ok(w) = Window::from_contains_name(title) {
+            return Ok(w);
+        }
+        if let Some(status) = child.try_wait()? {
+            anyhow::bail!("游戏进程已退出：{status}");
+        }
+        if std::time::Instant::now() >= deadline {
+            anyhow::bail!("等待游戏窗口超时（{timeout_secs}s）：{title}");
+        }
+        std::thread::sleep(Duration::from_millis(500));
     }
 }

@@ -3,6 +3,7 @@ use fast_image_resize::{FilterType, ResizeAlg};
 use image::{DynamicImage, ImageBuffer, Rgb};
 use rhai::{Array, Dynamic, Engine, Scope, AST};
 use std::collections::{HashMap, HashSet};
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -12,9 +13,34 @@ use crate::ocr::Ocr;
 use crate::script_engine::{sleep, Frame, TaskState, STOP};
 use crate::vision::{pixel_like, BASE_HEIGHT, BASE_WIDTH, MatchReport, TemplateSet, Vision};
 use crate::worker;
-use crate::k;
+use crate::{Args, GameType, k};
 
 pub const WINDOW_TITLE: &str = "异环  ";
+
+pub fn launch(args: &Args) -> Result<()> {
+    let mut cfg = crate::load_launch_config("nte")?;
+    if let Some(exe) = &args.exe {
+        cfg.exec = exe.clone();
+        crate::save_launch_config("nte", &cfg.exec, &cfg.login)?;
+        println!("已更新启动配置：{}", cfg.exec);
+    }
+    if cfg.exec.is_empty() {
+        anyhow::bail!("未配置启动器路径。用法：elysium nte launch <启动器exe路径>");
+    }
+    println!("启动启动器：{}", cfg.exec);
+    let mut child = Command::new(&cfg.exec)
+        .spawn()
+        .with_context(|| format!("启动进程失败：{}", cfg.exec))?;
+    let window = crate::wait_game_window(WINDOW_TITLE, &mut child, 600)?;
+    crate::vision::activate_window(&window);
+    println!("游戏窗口已出现");
+    if cfg.login.is_empty() {
+        println!("未配置登录脚本，启动完成");
+        return Ok(());
+    }
+    println!("执行登录任务：{}", cfg.login);
+    crate::run_cli(args, GameType::Nte, &cfg.login)
+}
 
 const CHARACTER_JSON: &str = "nte/DataTable/Character/DT_Character.json";
 const AVATAR_DIR: &str = "nte/UI_Icon/AvatarImage/CustomAvatar/256";

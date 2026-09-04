@@ -1,5 +1,6 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use rhai::{AST, CallFnOptions, Engine, Scope};
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -9,9 +10,34 @@ use crate::input::*;
 use crate::script_engine::{sleep, Frame, TaskState, StopReason, STOP};
 use crate::vision::{Vision, pixel_like};
 use crate::worker;
-use crate::k;
+use crate::{Args, GameType, k};
 
 pub const WINDOW_TITLE: &str = "二重螺旋  ";
+
+pub fn launch(args: &Args) -> Result<()> {
+    let mut cfg = crate::load_launch_config("dna")?;
+    if let Some(exe) = &args.exe {
+        cfg.exec = exe.clone();
+        crate::save_launch_config("dna", &cfg.exec, &cfg.login)?;
+        println!("已更新启动配置：{}", cfg.exec);
+    }
+    if cfg.exec.is_empty() {
+        anyhow::bail!("未配置游戏路径。用法：elysium dna launch <游戏exe路径>");
+    }
+    println!("启动游戏：{}", cfg.exec);
+    let mut child = Command::new(&cfg.exec)
+        .spawn()
+        .with_context(|| format!("启动进程失败：{}", cfg.exec))?;
+    let window = crate::wait_game_window(WINDOW_TITLE, &mut child, 120)?;
+    crate::vision::activate_window(&window);
+    println!("游戏窗口已出现");
+    if cfg.login.is_empty() {
+        println!("未配置登录脚本，启动完成");
+        return Ok(());
+    }
+    println!("执行登录任务：{}", cfg.login);
+    crate::run_cli(args, GameType::Dna, &cfg.login)
+}
 
 pub fn setup_engine(
     engine: &mut Engine,

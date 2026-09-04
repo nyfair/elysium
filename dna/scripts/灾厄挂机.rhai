@@ -4,6 +4,7 @@
 //   "loop": false,
 //   "timeout": 99999
 // }
+
 loop {
     let img = shot();
     if task_ended(img) {

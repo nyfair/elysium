@@ -156,6 +156,7 @@ impl App {
         Args {
             game: Some(self.selected_game()),
             task: self.tasks.get(self.selected_task).cloned(),
+            exe: None,
             plan: vec![],
             boost: self.boost.parse().unwrap_or(0),
             turn: self.turn.parse().unwrap_or(99),
