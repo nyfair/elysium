@@ -31,14 +31,48 @@ pub fn launch(args: &Args) -> Result<()> {
     let mut child = Command::new(&cfg.exec)
         .spawn()
         .with_context(|| format!("启动进程失败：{}", cfg.exec))?;
-    let window = crate::wait_game_window(WINDOW_TITLE, &mut child, 600)?;
-    crate::vision::activate_window(&window);
-    println!("游戏窗口已出现");
+    let window = crate::wait_window("异环启动器", &mut child, 10)?;
+    crate::vision::activate_window(&window, false);
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    let vision = Vision::start(window)?;
+    let ocr = Ocr::global().context("无法初始化 OCR 引擎")?;
+    let (x, y) = vision.get_dimension();
+    println!("启动器画面: {}x{}", x, y);
+    let (button_x, button_y) = ((x as f32 * 0.74) as u32, (y as f32 * 0.8) as u32);
+    loop {
+        let mut img = vision.shot()?;
+        let mut lines = ocr.recognize_roi(&img, (button_x, button_y, x, y), false)?;
+        let mut text = lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>().join("\n");
+        println!("{}", text);
+        let px = button_x as f32 + lines[0].x + lines[0].w / 2.;
+        let py = button_y as f32 + lines[0].y + lines[0].h / 2.;
+        if lines[0].text.contains("开始游戏") {
+            crate::post_click(window, px, py);
+            break
+        } else if lines[0].text.contains("开始更新") {
+            crate::post_click(window, px, py);
+            let (status_x, status_y) = ((x as f32 * 0.06) as u32, (y as f32 * 0.94) as u32);
+            let (status_w, status_h) = ((x as f32 * 0.67) as u32, (y as f32 * 0.05) as u32);
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                img = vision.shot()?;
+                lines = ocr.recognize_roi(&img, (status_x, status_y, status_w, status_h), false)?;
+                text = lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>().join("\n");
+                if text == "" { break }
+                println!("{}", text);
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    vision.stop();
+
+    let window = crate::wait_window(WINDOW_TITLE, &mut child, 30)?;
     if cfg.login.is_empty() {
         println!("未配置登录脚本，启动完成");
         return Ok(());
     }
-    println!("执行登录任务：{}", cfg.login);
+    crate::vision::activate_window(&window, true);
     crate::run_cli(args, GameType::Nte, &cfg.login)
 }
 
@@ -282,7 +316,7 @@ fn locate(
             return false;
         }
     };
-    let lines = match ocr.recognize_roi(&img, (974, 132, 200, 30)) {
+    let lines = match ocr.recognize_roi(&img, (974, 132, 200, 30), true) {
         Ok(l) => l,
         Err(e) => {
             eprintln!("teleport: 区域识别失败：{e}");

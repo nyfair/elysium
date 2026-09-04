@@ -28,14 +28,11 @@ pub fn launch(args: &Args) -> Result<()> {
     let mut child = Command::new(&cfg.exec)
         .spawn()
         .with_context(|| format!("启动进程失败：{}", cfg.exec))?;
-    let window = crate::wait_game_window(WINDOW_TITLE, &mut child, 120)?;
-    crate::vision::activate_window(&window);
-    println!("游戏窗口已出现");
+    crate::wait_window(WINDOW_TITLE, &mut child, 30)?;
     if cfg.login.is_empty() {
         println!("未配置登录脚本，启动完成");
         return Ok(());
     }
-    println!("执行登录任务：{}", cfg.login);
     crate::run_cli(args, GameType::Dna, &cfg.login)
 }
 

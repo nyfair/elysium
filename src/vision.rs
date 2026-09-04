@@ -14,7 +14,9 @@ use windows_capture::window::Window;
 use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::ClientToScreen;
-use windows::Win32::UI::WindowsAndMessaging::{GetClientRect, PostMessageW};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetClientRect, IsIconic, SetForegroundWindow, ShowWindow, PostMessageW, SW_RESTORE, SW_SHOW
+};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -164,9 +166,20 @@ fn to_rgb_image(f: &FrameBuf) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {
     ImageBuffer::from_raw(f.width, f.height, rgb).ok_or_else(|| anyhow!("截图数据为空"))
 }
 
-pub fn activate_window(window: &Window) {
-    let hwnd = window.as_raw_hwnd();
-    unsafe { let _ = PostMessageW(Some(HWND(hwnd)), 6, WPARAM(1), LPARAM(0)); }
+pub fn activate_window(window: &Window, show: bool) {
+    let hwnd = HWND(window.as_raw_hwnd());
+    unsafe {
+        if show {
+            if IsIconic(hwnd).as_bool() {
+                let _ = ShowWindow(hwnd, SW_RESTORE);
+            } else {
+                let _ = ShowWindow(hwnd, SW_SHOW);
+            }
+            let _ = SetForegroundWindow(hwnd);
+        } else {
+            let _ = PostMessageW(Some(hwnd), 6, WPARAM(1), LPARAM(0));
+        }
+    }
 }
 
 impl Vision {

@@ -19,8 +19,12 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use windows::core::PCWSTR;
+use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::Shell::{IsUserAnAdmin, ShellExecuteW};
-use windows::Win32::UI::WindowsAndMessaging;
+use windows::Win32::UI::WindowsAndMessaging::{
+    SW_SHOWNORMAL, WM_LBUTTONDOWN, WM_LBUTTONUP,
+    PostMessageW, SetProcessDPIAware
+};
 use windows_capture::window::Window;
 
 use crate::script_engine::TaskState;
@@ -124,7 +128,7 @@ fn relaunch_as_admin() -> Result<()> {
             PCWSTR::from_raw(exe_w.as_ptr()),
             PCWSTR::from_raw(params_w.as_ptr()),
             PCWSTR::from_raw(dir_w.as_ptr()),
-            WindowsAndMessaging::SW_SHOWNORMAL,
+            SW_SHOWNORMAL,
         )
     };
     if result.0 as isize <= 32 {
@@ -135,7 +139,7 @@ fn relaunch_as_admin() -> Result<()> {
 
 fn main() -> Result<()> {
     unsafe {
-        let _ = WindowsAndMessaging::SetProcessDPIAware();
+        let _ = SetProcessDPIAware();
     }
     let args = Args::parse();
     if !is_admin() {
@@ -166,7 +170,7 @@ fn main() -> Result<()> {
     if task == "act" {
         let window = Window::from_contains_name(game.title())
             .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{}", e))?;
-        vision::activate_window(&window);
+        vision::activate_window(&window, false);
         println!("窗口已激活");
         return Ok(());
     }
@@ -195,7 +199,7 @@ struct CliResources {
 fn init_cli(game: GameType) -> Result<CliResources> {
     let window = Window::from_contains_name(game.title())
         .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{}", e))?;
-    vision::activate_window(&window);
+    vision::activate_window(&window, false);
     let vision = Arc::new(vision::Vision::start(window)?);
     let pad = Arc::new(Mutex::new(input::Gamepad::new()
         .context("无法连接虚拟手柄：请以管理员身份运行，或确认已安装 ViGEmBus 驱动")?));
@@ -327,12 +331,12 @@ fn script_path(game: &str, task: &str) -> std::path::PathBuf {
     }
 }
 
-pub(crate) struct LaunchConfig {
+pub struct LaunchConfig {
     pub exec: String,
     pub login: String,
 }
 
-pub(crate) fn load_launch_config(game: &str) -> Result<LaunchConfig> {
+pub fn load_launch_config(game: &str) -> Result<LaunchConfig> {
     let path = format!("user-{game}-scripts/config.json");
     let text =
         std::fs::read_to_string(&path).with_context(|| format!("读取 {path} 失败（请先配置游戏路径）"))?;
@@ -343,14 +347,14 @@ pub(crate) fn load_launch_config(game: &str) -> Result<LaunchConfig> {
     })
 }
 
-pub(crate) fn save_launch_config(game: &str, exec: &str, login: &str) -> Result<()> {
+pub fn save_launch_config(game: &str, exec: &str, login: &str) -> Result<()> {
     let path = format!("user-{game}-scripts/config.json");
     let v = serde_json::json!({ "exec": exec, "login": login });
     std::fs::write(&path, serde_json::to_string_pretty(&v)?).with_context(|| format!("写入 {path} 失败"))?;
     Ok(())
 }
 
-pub(crate) fn wait_game_window(
+pub fn wait_window(
     title: &str,
     child: &mut std::process::Child,
     timeout_secs: u64,
@@ -360,12 +364,23 @@ pub(crate) fn wait_game_window(
         if let Ok(w) = Window::from_contains_name(title) {
             return Ok(w);
         }
-        if let Some(status) = child.try_wait()? {
-            anyhow::bail!("游戏进程已退出：{status}");
+        if let Some(_) = child.try_wait()? {
+            std::thread::sleep(Duration::from_millis(1000));
+            continue
         }
         if std::time::Instant::now() >= deadline {
-            anyhow::bail!("等待游戏窗口超时（{timeout_secs}s）：{title}");
+            anyhow::bail!("等待窗口超时（{timeout_secs}s）：{title}");
         }
         std::thread::sleep(Duration::from_millis(500));
+    }
+}
+
+pub fn post_click(window: Window, x: f32, y: f32) {
+    unsafe {
+        let hwnd = Some(HWND(window.as_raw_hwnd()));
+        let lp = LPARAM(((y as isize & 0xFFFF) << 16) | (x as isize & 0xFFFF));
+        let _ = PostMessageW(hwnd, WM_LBUTTONDOWN, WPARAM(1), lp);
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let _ = PostMessageW(hwnd, WM_LBUTTONUP, WPARAM(0), lp);
     }
 }

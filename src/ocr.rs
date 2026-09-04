@@ -98,11 +98,13 @@ impl Ocr {
         &self,
         frame: &ImageBuffer<Rgb<u8>, Vec<u8>>,
         roi: (u32, u32, u32, u32),
+        scale: bool
     ) -> Result<Vec<OcrLine>> {
-        let (x, y, w, h) = crate::vision::scale_roi(frame.width(), frame.height(), roi);
-        if x + w > frame.width() || y + h > frame.height() {
-            anyhow::bail!("OCR ROI 越界：({x},{y},{w},{h})");
-        }
+        let (x, y, w, h) = if scale {
+            crate::vision::scale_roi(frame.width(), frame.height(), roi)
+        } else {
+            roi
+        };
         let crop = image::imageops::crop_imm(frame, x, y, w, h).to_image();
         let (tx, rx) = channel();
         self.tx.as_ref().unwrap().send(Msg::Run(DynamicImage::ImageRgb8(crop), tx))?;

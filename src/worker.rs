@@ -114,7 +114,7 @@ fn init_resources(
     };
     let window = windows_capture::window::Window::from_contains_name(title)
         .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{e}"))?;
-    activate_window(&window);
+    activate_window(&window, false);
     let vision = Arc::new(Vision::start(window)?);
     SharedState::push_log(shared, format!("正在捕获窗口：{title}"));
 

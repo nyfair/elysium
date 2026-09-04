@@ -295,7 +295,7 @@ fn ocr_info_roi(
     w: i64,
     h: i64,
 ) -> Array {
-    match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32)) {
+    match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32), true) {
         Ok(lines) => lines
             .into_iter()
             .map(|l| {
@@ -325,7 +325,7 @@ fn ocr_roi(
     w: i64,
     h: i64,
 ) -> String {
-    match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32)) {
+    match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32), true) {
         Ok(lines) => lines.into_iter().map(|l| l.text).collect::<Vec<_>>().join("\n"),
         Err(e) => {
             eprintln!("ocr_text 出错：{e}");
