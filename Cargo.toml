@@ -6,16 +6,16 @@ edition = "2024"
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
+fast_image_resize = { version = "6", default-features = false, features = ["image"] }
 image = { version = "0", default-features = false, features = ["png"] }
+ocr-rs = { path = "rust-paddle-ocr", optional = true }
+ratatui = "0"
+rhai = { version = "1", features = ["sync"] }
 rustfft = "6"
-windows-capture = "2"
-windows = { version = "0", features = ["Win32_Media_Audio", "Win32_System_Com_StructuredStorage", "Win32_System_Variant"] }
 serde_json = "1"
 vigem-client = "0"
-rhai = { version = "1", features = ["sync"] }
-ratatui = "0"
-fast_image_resize = { version = "6", default-features = false, features = ["image"] }
-ocr-rs = { path = "rust-paddle-ocr", optional = true }
+windows-capture = "2"
+windows = { version = "0", features = ["Win32_Media_Audio", "Win32_System_Com_StructuredStorage", "Win32_System_Variant"] }
 
 [[bin]]
 name = "obs64"

@@ -1,6 +1,6 @@
 // {
 //   "author": "",
-//   "desc": "各类体力副本boss",
+//   "desc": "boost代表花费的体力，strategy代表副本名字",
 //   "loop": false,
 //   "timeout": 1000
 // }

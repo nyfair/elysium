@@ -59,7 +59,7 @@ pub fn launch(args: &Args) -> Result<()> {
                 img = vision.shot()?;
                 lines = ocr.recognize_roi(&img, (status_x, status_y, status_w, status_h), false)?;
                 text = lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>().join("\n");
-                if text == "" { break }
+                if text.is_empty() { break }
                 println!("{}", text);
             }
         }
@@ -407,7 +407,7 @@ fn find_treasure(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> Array {
     let data = work.as_raw();
     let mut purp = vec![0u8; w * h];
     let mut dark = vec![0u8; w * h];
-    for (i, px) in data.chunks_exact(3).enumerate() {
+    for (i, px) in data.as_chunks::<3>().0.iter().enumerate() {
         let r = px[0] as i16;
         let g = px[1] as i16;
         let b = px[2] as i16;
@@ -416,9 +416,9 @@ fn find_treasure(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> Array {
             let (rf, gf, bf) = (r as f64, g as f64, b as f64);
             let d = rf - gf;
             let s = d / rf * 255.;
-            if s >= 80. && s <= 210. {
+            if (80. ..=210.).contains(&s) {
                 let hue = 360. + 60. * (gf - bf) / d;
-                if hue >= 310. && hue <= 352. {
+                if (310. ..=352.).contains(&hue) {
                     purp[i] = 1;
                 }
             }

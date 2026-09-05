@@ -133,11 +133,9 @@ fn spawn() {
 
 fn stop() {
     let any_on = k!(SWITCHES).iter().any(|(_, v)| *v);
-    if !any_on {
-        if let Some(s) = k!(MONITOR).take() {
+    if !any_on && let Some(s) = k!(MONITOR).take() {
             s.store(true, Ordering::SeqCst);
         }
-    }
 }
 
 pub fn ensure_started(pad: Arc<Mutex<Gamepad>>, templates: Vec<TemplateConfig>) {

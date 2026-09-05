@@ -1,3 +1,6 @@
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
+
 mod vision;
 mod input;
 mod script_engine;
@@ -364,7 +367,7 @@ pub fn wait_window(
         if let Ok(w) = Window::from_contains_name(title) {
             return Ok(w);
         }
-        if let Some(_) = child.try_wait()? {
+        if child.try_wait()?.is_some() {
             std::thread::sleep(Duration::from_millis(1000));
             continue
         }
