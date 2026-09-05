@@ -25,7 +25,7 @@ pub fn launch(args: &Args) -> Result<()> {
         println!("已更新启动配置：{}", cfg.exec);
     }
     if cfg.exec.is_empty() {
-        anyhow::bail!("未配置启动器路径。用法：elysium nte launch <启动器exe路径>");
+        anyhow::bail!("未配置启动器路径。用法：obs64 nte launch <启动器exe路径>");
     }
     println!("启动启动器：{}", cfg.exec);
     let mut child = Command::new(&cfg.exec)
@@ -73,6 +73,7 @@ pub fn launch(args: &Args) -> Result<()> {
         return Ok(());
     }
     crate::vision::activate_window(&window, true);
+    println!("注意：登录时必须保持窗口位于前台，登录成功前请勿执行键鼠操作");
     crate::run_cli(args, GameType::Nte, &cfg.login)
 }
 

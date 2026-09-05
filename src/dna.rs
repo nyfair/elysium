@@ -22,7 +22,7 @@ pub fn launch(args: &Args) -> Result<()> {
         println!("已更新启动配置：{}", cfg.exec);
     }
     if cfg.exec.is_empty() {
-        anyhow::bail!("未配置游戏路径。用法：elysium dna launch <游戏exe路径>");
+        anyhow::bail!("未配置游戏路径。用法：obs64 dna launch <游戏exe路径>");
     }
     println!("启动游戏：{}", cfg.exec);
     let mut child = Command::new(&cfg.exec)

@@ -1,6 +1,6 @@
 // {
 //   "author": "",
-//   "desc": "自动登录，启动游戏请使用elysium dna launch，需要full版ocr功能",
+//   "desc": "自动登录，启动游戏请使用launch子命令，需要full版ocr功能",
 //   "loop": false,
 //   "timeout": 3600
 // }
