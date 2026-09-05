@@ -5,19 +5,19 @@
 //   "timeout": 3600
 // }
 
-// wait(10.0);
-// loop {
-//     let img = shot();
-//     let t = ocr(img, 590, 595, 105, 50);
-//     if (t.contains("进入游戏")) {
-//         break
-//     } else {
-//         t = ocr(img, 34, 628, 1216, 69);
-//         print(t);
-//         wait(2.0);
-//     }
-// }
-// for i in 0..3 { click(A, 0.1, 0.3); }
+wait(10.0);
+loop {
+    let img = shot();
+    let t = ocr(img, 590, 595, 105, 50);
+    if t.contains("进入游戏") {
+        break
+    } else {
+        t = ocr(img, 34, 628, 1216, 69);
+        print(t);
+        wait(2.0);
+    }
+}
+for i in 0..3 { click(A, 0.1, 0.3); }
 loop {
     let img = shot();
     if (pixel_like(img, 32, 134, 255, 255, 255, 15) &&
@@ -27,9 +27,11 @@ loop {
         break
     }
     let t = ocr(img, 523, 66, 235, 90);
-    if (t.contains("异晶")) {
+    if t.contains("异晶") {
         print(t);
         click(B, 0.1, 0.6);
+        click(B, 0.1, 0.6);
+        click(A, 0.1, 0.6);
         click(A, 0.1, 0.6);
         break
     }

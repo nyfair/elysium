@@ -9,7 +9,7 @@ wait(10.0);
 loop {
     let img = shot();
     let t = ocr(img, 550, 600, 180, 90);
-    if (t.contains("进入游戏")) {
+    if t.contains("进入游戏") {
         click(A);
         click(A);
         break
