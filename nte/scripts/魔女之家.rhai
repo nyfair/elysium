@@ -23,7 +23,8 @@ if t.contains("黑羽") {
         if t.contains("赐福") {
             print(t);
             click(B, 0.1, 1.0);
-            click(B);
+            click(B, 0.1, 0.6);
+            click(B, 0.1, 0.6);
             break
         }
         wait(0.5);

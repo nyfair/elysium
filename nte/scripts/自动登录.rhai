@@ -5,7 +5,6 @@
 //   "timeout": 3600
 // }
 
-wait(10.0);
 loop {
     let img = shot();
     let t = ocr(img, 590, 595, 105, 50);
@@ -13,7 +12,14 @@ loop {
         break
     } else {
         t = ocr(img, 34, 628, 1216, 69);
-        print(t);
+        for l in t.split('\n') {
+            if l.len >= 2 &&
+                !l.contains("Insert") &&
+                !l.contains("实名注册") &&
+                !l.contains("审批文号") {
+                print(l);
+            }
+        }
         wait(2.0);
     }
 }
