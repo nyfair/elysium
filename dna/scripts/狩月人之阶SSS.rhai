@@ -1,6 +1,6 @@
 // {
 //   "author": "",
-//   "desc": "水狩月人巅峰赛3艾达，建议720p120hz最低画质降低延迟",
+//   "desc": "水狩月人巅峰赛3艾达，建议720p+120hz最低画质降低延迟",
 //   "loop": true,
 //   "timeout": 90
 // }
@@ -23,4 +23,4 @@ rstick();
 click(A, 0.1, 0.5);
 click(LS, 0.1, 0.6);
 click(X, 0.1, 0.5);
-loop { run_combo("e0"); }
+loop { run_combo("e0w0"); }

@@ -258,6 +258,8 @@ fn run_inner(
     if let Err(e) = result {
         SharedState::push_log(shared, format!("任务出错：{e:#}"));
     }
+    #[cfg(feature = "dna")]
+    crate::dna::stop_combo();
     crate::audio::disable_all();
     resources.vision.stop();
     k!(shared).running = false;
@@ -294,6 +296,8 @@ fn run_custom_inner(
         sleep(0.1);
     }
     let _ = handle.join();
+    #[cfg(feature = "dna")]
+    crate::dna::stop_combo();
     STOP.store(false, Ordering::SeqCst);
     crate::audio::disable_all();
     resources.vision.stop();

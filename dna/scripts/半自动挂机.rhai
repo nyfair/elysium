@@ -4,6 +4,8 @@
 //   "loop": false,
 //   "timeout": 20000
 // }
+
+let started = false;
 loop {
     let img = shot();
     if task_ended(img) {
@@ -34,9 +36,9 @@ loop {
         set_turn(get_turn() + 1);
         set_pause(false);
     }
-    if COMBO.len() > 0 {
-        run_combo(COMBO);
-    } else {
-        wait(0.5);
+    if !started && COMBO.len() > 0 {
+        auto_combo(COMBO);
+        started = true;
     }
+    wait(0.5);
 }

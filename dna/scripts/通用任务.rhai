@@ -4,6 +4,7 @@
 //   "loop": true,
 //   "timeout": 90
 // }
+
 click(Y, 0.1, 0.2);
 for b in 0..BOOST { click(RIGHT); }
 click(A);

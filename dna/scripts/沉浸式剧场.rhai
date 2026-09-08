@@ -74,7 +74,7 @@ pad_reset();
 loop {
     if check() == 2 {
         click(RS);
-        run_combo("e0");
+        run_combo("e0w0");
     } else {
         pad_reset();
         wait(0.2);
