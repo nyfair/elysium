@@ -1,11 +1,11 @@
-use rustfft::{FftPlanner, num_complex::Complex};
-use anyhow::Context as _;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{Builder, sleep};
 use std::time::{Duration, Instant};
 
+use anyhow::Context;
+use rustfft::{FftPlanner, num_complex::Complex};
 use windows::Win32::Media::Audio::{
     AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, IAudioCaptureClient, IAudioClient,
     IMMDeviceEnumerator, MMDeviceEnumerator, WAVEFORMATEXTENSIBLE, eConsole, eRender,
@@ -13,7 +13,7 @@ use windows::Win32::Media::Audio::{
 use windows::Win32::System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree};
 
 use crate::input::Gamepad;
-use crate::k;
+use crate::{k, log_error};
 
 pub type Action = Arc<dyn Fn(&Arc<Mutex<Gamepad>>) + Send + Sync>;
 
@@ -126,7 +126,7 @@ fn spawn() {
         .name("dodge".into())
         .spawn(move || {
             if let Err(e) = listen(pad, configs, stop) {
-                eprintln!("音频监听启动失败：{e}");
+                log_error!("音频监听启动失败：{}", e);
             }
         });
 }

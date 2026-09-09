@@ -1,13 +1,14 @@
-use rhai::{Array, Dynamic, Engine, Map, Module, Scope};
-
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::vision::{AssetMap, BASE_WIDTH, Vision, find_line, get_pixel, ncc_match, pixel_equal, pixel_like, scale_roi};
+use rhai::{Array, Dynamic, Engine, Map, Module, Scope};
+
 use crate::input::{Button, Gamepad};
-use crate::{Args, k};
+use crate::vision::{AssetMap, BASE_WIDTH, Vision, find_line, get_pixel, ncc_match, pixel_equal, pixel_like, scale_roi};
+use crate::worker::log_impl;
+use crate::{Args, k, log_error};
 #[cfg(feature = "ocr")]
 use crate::ocr::Ocr;
 
@@ -282,7 +283,7 @@ pub fn new_engine(
         });
     }
 
-    engine.on_print(|s: &str| println!("{s}"));
+    engine.on_print(|s: &str| log_impl(s));
     engine
 }
 
@@ -310,7 +311,7 @@ fn ocr_info_roi(
             })
             .collect(),
         Err(e) => {
-            eprintln!("ocr 出错：{e}");
+            log_error!("ocr 出错：{}", e);
             Vec::new()
         }
     }
@@ -328,7 +329,7 @@ fn ocr_roi(
     match ocr.recognize_roi(img, (x as u32, y as u32, w as u32, h as u32), true) {
         Ok(lines) => lines.into_iter().map(|l| l.text).collect::<Vec<_>>().join("\n"),
         Err(e) => {
-            eprintln!("ocr_text 出错：{e}");
+            log_error!("ocr_text 出错：{}", e);
             String::new()
         }
     }

@@ -1,17 +1,36 @@
-use anyhow::{Context, Result};
-use rhai::{AST, Engine, Scope};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{Builder, JoinHandle};
 use std::time::{Duration, Instant};
 
-use crate::{Args, GameType, k};
+use anyhow::{Context, Result};
+use rhai::{AST, Engine, Scope};
+
 use crate::input::Gamepad;
 use crate::script_engine::{sleep, init_scope, new_engine, STOP, StopReason, ScriptMeta, TaskState};
 use crate::vision::{activate_window, load_assets, AssetMap, Vision};
+use crate::{Args, GameType, k, log_error};
 
 const MAX_LOGS: usize = 200;
+
+static LOG_SINK: Mutex<Option<Arc<dyn Fn(&str) + Send + Sync>>> = Mutex::new(None);
+
+pub fn log_impl(msg: &str) {
+    if let Some(sink) = k!(LOG_SINK).clone() {
+        sink(msg);
+    } else {
+        println!("{msg}");
+    }
+}
+
+pub fn log_error_impl(msg: &str) {
+    if let Some(sink) = k!(LOG_SINK).clone() {
+        sink(msg);
+    } else {
+        eprintln!("{msg}");
+    }
+}
 
 #[derive(Clone)]
 struct GameResources {
@@ -97,7 +116,6 @@ struct Resources {
     vision: Arc<Vision>,
     pad: Arc<Mutex<Gamepad>>,
     engine: Arc<Engine>,
-    log: Arc<dyn Fn(&str) + Send + Sync>,
 }
 
 fn init_resources(
@@ -145,10 +163,7 @@ fn init_resources(
         &ocr
     );
     let sh = shared.clone();
-    let log: Arc<dyn Fn(&str) + Send + Sync> =
-        Arc::new(move |msg| SharedState::push_log(&sh, msg.to_string()));
-    let l = log.clone();
-    engine.on_print(move |msg: &str| l(msg));
+    *k!(LOG_SINK) = Some(Arc::new(move |msg: &str| SharedState::push_log(&sh, msg.to_string())));
 
     match game {
         #[cfg(feature = "dna")]
@@ -162,7 +177,7 @@ fn init_resources(
     }
     let engine = Arc::new(engine);
 
-    Ok(Resources { vision, pad, engine, log })
+    Ok(Resources { vision, pad, engine })
 }
 
 pub fn spawn(game: GameType, task: String, args: Args) -> Result<Worker> {
@@ -238,7 +253,6 @@ fn run_inner(
             exit.clone(),
             reset.clone(),
             timeout,
-            resources.log.clone(),
             resources.vision.clone(),
             resources.pad.clone(),
             meta.r#loop,
@@ -252,7 +266,6 @@ fn run_inner(
             exit.clone(),
             reset.clone(),
             timeout,
-            resources.log.clone(),
         ),
     };
     if let Err(e) = result {
@@ -287,7 +300,7 @@ fn run_custom_inner(
         Duration::from_secs(ScriptMeta::DEFAULT_TIMEOUT)
     };
     let scope = Arc::new(init_scope(&args));
-    let handle = spawn_script(resources.engine.clone(), ast, scope, resources.log.clone());
+    let handle = spawn_script(resources.engine.clone(), ast, scope);
     let start = Instant::now();
     loop {
         if check(&handle, exit, reset, timeout, start).is_some() {
@@ -310,7 +323,6 @@ pub fn spawn_script(
     engine: Arc<Engine>,
     ast: Arc<AST>,
     scope: Arc<Scope<'static>>,
-    log: Arc<dyn Fn(&str) + Send + Sync>,
 ) -> JoinHandle<()> {
     STOP.store(false, Ordering::SeqCst);
     Builder::new()
@@ -325,7 +337,7 @@ pub fn spawn_script(
                             if t.clone().try_cast::<StopReason>() == Some(StopReason::Exit)
                     );
                     if !stopped {
-                        log(&format!("脚本出错：{e}"));
+                        log_error!("脚本出错：{}", e);
                         let _ = std::fs::write("error.log", format!("{e}\n"));
                     }
                 }

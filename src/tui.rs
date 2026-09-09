@@ -1,3 +1,6 @@
+use std::io::stdout;
+use std::time::Duration;
+
 use anyhow::Result;
 use ratatui::crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
@@ -7,12 +10,10 @@ use ratatui::crossterm::execute;
 use ratatui::layout::Position;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
-use std::io::stdout;
-use std::time::Duration;
 
-use crate::{Args, GameType, k};
 use crate::script_engine;
-use crate::worker;
+use crate::worker::{Worker, spawn, spawn_custom};
+use crate::{Args, GameType, k, log_error};
 
 const PARAMS: [&str; 5] = ["strategy", "combo", "timeout", "boost", "turn"];
 const PARAM_HELP: [&str; 5] = [
@@ -83,7 +84,7 @@ struct App {
     custom: bool,
     custom_script: String,
     custom_rect: Option<Rect>,
-    worker: Option<worker::Worker>,
+    worker: Option<Worker>,
     quit: bool,
 }
 
@@ -263,13 +264,13 @@ fn handle_custom_key(app: &mut App, key: KeyEvent) {
                 let args = app.build_args();
                 let game = args.game.clone().unwrap();
                 let script = app.custom_script.clone();
-                match worker::spawn_custom(game, script, args) {
+                match spawn_custom(game, script, args) {
                     Ok(w) => {
                         app.worker = Some(w);
                         app.custom = true;
                         app.page = Page::Running;
                     }
-                    Err(e) => eprintln!("任务启动失败：{e}"),
+                    Err(e) => log_error!("任务启动失败：{}", e),
                 }
             }
         }
@@ -348,12 +349,12 @@ fn handle_config_key(app: &mut App, key: KeyEvent) {
                 let args = app.build_args();
                 let game = args.game.clone().unwrap();
                 let task = args.task.clone().unwrap();
-                match worker::spawn(game, task, args) {
+                match spawn(game, task, args) {
                     Ok(w) => {
                         app.worker = Some(w);
                         app.page = Page::Running;
                     }
-                    Err(e) => eprintln!("任务启动失败：{e}"),
+                    Err(e) => log_error!("任务启动失败：{}", e),
                 }
             }
         }

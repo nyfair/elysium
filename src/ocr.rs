@@ -1,9 +1,10 @@
+use std::sync::mpsc::{channel, Sender};
+use std::sync::{Arc, OnceLock};
+use std::thread::{Builder, JoinHandle};
+
 use anyhow::{anyhow, Result};
 use image::{DynamicImage, ImageBuffer, Rgb};
 use ocr_rs::{OcrEngine, OcrEngineConfig};
-use std::sync::mpsc::{channel, Sender};
-use std::sync::{Arc, OnceLock};
-use std::thread::{self, JoinHandle};
 
 const DET_MODEL: &[u8] = include_bytes!("../rust-paddle-ocr/models/PP-OCRv6_small_det.mnn");
 const REC_MODEL: &[u8] = include_bytes!("../rust-paddle-ocr/models/PP-OCRv6_small_rec.mnn");
@@ -44,7 +45,7 @@ impl Ocr {
     pub fn new() -> Result<Self> {
         let (tx, rx) = channel::<Msg>();
         let (init_tx, init_rx) = channel();
-        let handle = thread::Builder::new()
+        let handle = Builder::new()
             .name("ocr".into())
             .spawn(move || {
                 let engine = match OcrEngine::from_bytes(

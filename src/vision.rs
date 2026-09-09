@@ -1,8 +1,20 @@
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
+
 use anyhow::{anyhow, Result};
 use fast_image_resize::{images::Image, FilterType, IntoImageView, PixelType, ResizeAlg, Resizer,};
 use image::{DynamicImage, GrayImage, ImageBuffer, Luma, Rgb, RgbaImage};
 use rustfft::num_complex::Complex;
 use rustfft::{FftDirection, FftPlanner};
+use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT, WPARAM};
+use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
+use windows::Win32::Graphics::Gdi::ClientToScreen;
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetClientRect, IsIconic, PostMessageW, SW_RESTORE, SW_SHOW, SetForegroundWindow, ShowWindow,
+};
 use windows_capture::capture::GraphicsCaptureApiHandler;
 use windows_capture::frame::Frame;
 use windows_capture::graphics_capture_api::InternalCaptureControl;
@@ -11,19 +23,8 @@ use windows_capture::settings::{
     MinimumUpdateIntervalSettings, SecondaryWindowSettings, Settings,
 };
 use windows_capture::window::Window;
-use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT, WPARAM};
-use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
-use windows::Win32::Graphics::Gdi::ClientToScreen;
-use windows::Win32::UI::WindowsAndMessaging::{
-    GetClientRect, IsIconic, SetForegroundWindow, ShowWindow, PostMessageW, SW_RESTORE, SW_SHOW
-};
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
 
-use crate::k;
+use crate::{k, log_error};
 
 pub type AssetMap = HashMap<String, GrayImage>;
 
@@ -224,7 +225,7 @@ impl Vision {
             .name("capture".into())
             .spawn(move || {
                 if let Err(e) = VisionHandler::start(settings) {
-                    eprintln!("截图出错：{e}");
+                    log_error!("截图出错：{}", e);
                 }
             })?;
         SHOT_TRIGGER.store(true, Ordering::Release);

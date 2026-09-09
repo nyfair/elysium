@@ -5,10 +5,10 @@
 //   "timeout": 20000
 // }
 
-fn restart() {
-    click(START);
-    click(X);
-    click(A);
+fn reset() {
+    print("无法识别该副本");
+    reset_task();
+    exit();
 }
 
 click(Y, 0.1, 0.2);
@@ -22,9 +22,7 @@ let img = shot();
 let m = ncc_match(img, "track_point", 440, 160, 500, 300);
 print(m);
 if m[2] < 0.5 {
-    print("无法识别该副本");
-    restart();
-    exit();
+    reset();
 } else if abs(m[0] - 632) < 2 && abs(m[1] - 308) < 2 {
     run_combo("w1j4");
     lstick(-10000, 10000, 0.05);
@@ -72,9 +70,7 @@ if m[2] < 0.5 {
     lstick();
     click(LS)
 } else {
-    print("无法识别该副本");
-    restart();
-    exit();
+    reset();
 }
 
 let started = false;

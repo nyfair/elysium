@@ -1,19 +1,20 @@
-use anyhow::{bail, Context, Result};
-use fast_image_resize::{FilterType, ResizeAlg};
-use image::{DynamicImage, ImageBuffer, Rgb};
-use rhai::{Array, Dynamic, Engine, Scope, AST};
 use std::collections::{HashMap, HashSet};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use anyhow::{bail, Context, Result};
+use fast_image_resize::{FilterType, ResizeAlg};
+use image::{DynamicImage, ImageBuffer, Rgb};
+use rhai::{Array, Dynamic, Engine, Scope, AST};
+
 use crate::input::*;
 use crate::ocr::Ocr;
 use crate::script_engine::{sleep, Frame, TaskState, STOP};
 use crate::vision::{pixel_like, BASE_HEIGHT, BASE_WIDTH, MatchReport, TemplateSet, Vision};
-use crate::worker;
-use crate::{Args, GameType, k};
+use crate::worker::{check, spawn_script};
+use crate::{Args, GameType, k, log, log_error};
 
 pub const WINDOW_TITLE: &str = "异环  ";
 
@@ -22,12 +23,12 @@ pub fn launch(args: &Args) -> Result<()> {
     if let Some(exe) = &args.exe {
         cfg.exec = exe.clone();
         crate::save_launch_config("nte", &cfg.exec, &cfg.login)?;
-        println!("已更新启动配置：{}", cfg.exec);
+        log!("已更新启动配置：{}", cfg.exec);
     }
     if cfg.exec.is_empty() {
         anyhow::bail!("未配置启动器路径。用法：obs64 nte launch <启动器exe路径>");
     }
-    println!("启动启动器：{}", cfg.exec);
+    log!("启动启动器：{}", cfg.exec);
     let mut child = Command::new(&cfg.exec)
         .spawn()
         .with_context(|| format!("启动进程失败：{}", cfg.exec))?;
@@ -38,13 +39,13 @@ pub fn launch(args: &Args) -> Result<()> {
     let vision = Vision::start(window)?;
     let ocr = Ocr::global().context("无法初始化 OCR 引擎")?;
     let (x, y) = vision.get_dimension();
-    println!("启动器画面: {}x{}", x, y);
+    log!("启动器画面: {}x{}", x, y);
     let (button_x, button_y) = ((x as f32 * 0.74) as u32, (y as f32 * 0.8) as u32);
     loop {
         let mut img = vision.shot()?;
         let mut lines = ocr.recognize_roi(&img, (button_x, button_y, x, y), false)?;
         let mut text = lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>().join("\n");
-        println!("{}", text);
+        log!("{}", text);
         let px = button_x as f32 + lines[0].x + lines[0].w / 2.;
         let py = button_y as f32 + lines[0].y + lines[0].h / 2.;
         if lines[0].text.contains("开始游戏") {
@@ -60,7 +61,7 @@ pub fn launch(args: &Args) -> Result<()> {
                 lines = ocr.recognize_roi(&img, (status_x, status_y, status_w, status_h), false)?;
                 text = lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>().join("\n");
                 if text.is_empty() { break }
-                println!("{}", text);
+                log!("{}", text);
             }
         }
         std::thread::sleep(std::time::Duration::from_millis(500));
@@ -69,11 +70,11 @@ pub fn launch(args: &Args) -> Result<()> {
 
     let window = crate::wait_window(WINDOW_TITLE, &mut child, 30)?;
     if cfg.login.is_empty() {
-        println!("未配置登录脚本，启动完成");
+        log!("未配置登录脚本，启动完成");
         return Ok(());
     }
     crate::vision::activate_window(&window, true);
-    println!("注意：登录时必须保持窗口位于前台，登录成功前请勿执行键鼠操作");
+    log!("注意：登录时必须保持窗口位于前台，登录成功前请勿执行键鼠操作");
     crate::run_cli(args, GameType::Nte, &cfg.login)
 }
 
@@ -301,11 +302,11 @@ fn locate(
 ) -> bool {
     let n = tp.areas.len();
     if n == 0 {
-        eprintln!("teleport: areas 为空");
+        log_error!("teleport: areas 为空");
         return false;
     }
     let Some(tgt_idx) = tp.areas.iter().position(|a| a == target_area) else {
-        eprintln!("teleport: 未知区域：{target_area}");
+        log_error!("teleport: 未知区域：{}", target_area);
         return false;
     };
     k!(pad).press(RT, 0.);
@@ -313,20 +314,20 @@ fn locate(
     let img = match vision.shot() {
         Ok(i) => i,
         Err(e) => {
-            eprintln!("teleport: 截图失败：{e}");
+            log_error!("teleport: 截图失败：{}", e);
             return false;
         }
     };
     let lines = match ocr.recognize_roi(&img, (974, 132, 200, 30), true) {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("teleport: 区域识别失败：{e}");
+            log_error!("teleport: 区域识别失败：{}", e);
             return false;
         }
     };
     let text = lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>().concat();
     let Some(cur_idx) = tp.areas.iter().position(|a| text.contains(a.as_str())) else {
-        eprintln!("teleport: 无法匹配当前区域：{text:?}");
+        log_error!("teleport: 无法匹配当前区域：{:?}", text);
         return false;
     };
     let mut d = (tgt_idx as i64 - cur_idx as i64).rem_euclid(n as i64);
@@ -620,7 +621,7 @@ pub fn setup_engine(
     let t = tp.clone();
     engine.register_fn("teleport", move |target: &str| -> bool {
         let Some(pt) = t.points.get(target) else {
-            eprintln!("teleport: 未知地点：{target}");
+            log_error!("teleport: 未知地点：{}", target);
             return false;
         };
         teleport(&v, &o, &p, &t, &pt.area, pt.r#type, pt.index)
@@ -638,7 +639,7 @@ pub fn setup_engine(
     let t = tp.clone();
     engine.register_fn("locate", move |target: &str| -> bool {
         let Some(pt) = t.points.get(target) else {
-            eprintln!("locate: 未知地点：{target}");
+            log_error!("locate: 未知地点：{}", target);
             return false;
         };
         locate(&v, &o, &p, &t, &pt.area, pt.r#type, pt.index)
@@ -667,13 +668,12 @@ pub fn run(
     exit: Arc<AtomicBool>,
     reset: Arc<AtomicBool>,
     timeout: std::time::Duration,
-    log: Arc<dyn Fn(&str) + Send + Sync>,
 ) -> Result<()> {
     STOP.store(false, Ordering::SeqCst);
-    let handle = worker::spawn_script(engine.clone(), ast.clone(), scope.clone(), log.clone());
+    let handle = spawn_script(engine.clone(), ast.clone(), scope.clone());
     let start = Instant::now();
     loop {
-        if worker::check(&handle, &exit, &reset, timeout, start).is_some() {
+        if check(&handle, &exit, &reset, timeout, start).is_some() {
             break;
         }
         sleep(0.5);

@@ -14,19 +14,19 @@ mod nte;
 #[cfg(feature = "ocr")]
 mod ocr;
 
-use anyhow::{bail, Context, Result};
-use clap::{Parser, ValueEnum};
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+use anyhow::{bail, Context, Result};
+use clap::{Parser, ValueEnum};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::Shell::{IsUserAnAdmin, ShellExecuteW};
 use windows::Win32::UI::WindowsAndMessaging::{
-    SW_SHOWNORMAL, WM_LBUTTONDOWN, WM_LBUTTONUP,
-    PostMessageW, SetProcessDPIAware
+    PostMessageW, SW_SHOWNORMAL, SetProcessDPIAware, WM_LBUTTONDOWN, WM_LBUTTONUP,
 };
 use windows_capture::window::Window;
 
@@ -36,6 +36,20 @@ use crate::script_engine::TaskState;
 macro_rules! k {
     ($mutex:expr) => {
         $mutex.lock().unwrap()
+    };
+}
+
+#[macro_export]
+macro_rules! log {
+    ($($arg:tt)*) => {
+        $crate::worker::log_impl(&format!($($arg)*))
+    };
+}
+
+#[macro_export]
+macro_rules! log_error {
+    ($($arg:tt)*) => {
+        $crate::worker::log_error_impl(&format!($($arg)*))
     };
 }
 
@@ -119,7 +133,7 @@ fn relaunch_as_admin() -> Result<()> {
         })
         .collect::<Vec<_>>()
         .join(" ");
-    println!("提权命令行: {} {}", exe.to_string_lossy(), params);
+    log!("提权命令行: {} {}", exe.to_string_lossy(), params);
     let runas = to_wide("runas");
     let exe_w = to_wide(&exe.to_string_lossy());
     let dir_w = to_wide(&dir.to_string_lossy());
@@ -146,7 +160,7 @@ fn main() -> Result<()> {
     }
     let args = Args::parse();
     if !is_admin() {
-        println!("检测到沒有管理员权限，正在请求...");
+        log!("检测到沒有管理员权限，正在请求...");
         relaunch_as_admin()?;
         return Ok(());
     }
@@ -166,7 +180,7 @@ fn main() -> Result<()> {
             .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{}", e))?;
         let vision = vision::Vision::start(window)?;
         vision.shot_to_file("shot.png")?;
-        println!("截图已保存到 shot.png");
+        log!("截图已保存到 shot.png");
         return Ok(());
     }
 
@@ -174,7 +188,7 @@ fn main() -> Result<()> {
         let window = Window::from_contains_name(game.title())
             .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{}", e))?;
         vision::activate_window(&window, false);
-        println!("窗口已激活");
+        log!("窗口已激活");
         return Ok(());
     }
 
@@ -196,7 +210,6 @@ struct CliResources {
     pad: Arc<Mutex<input::Gamepad>>,
     state: Arc<TaskState>,
     engine: Arc<rhai::Engine>,
-    log: Arc<dyn Fn(&str) + Send + Sync>,
 }
 
 fn init_cli(game: GameType) -> Result<CliResources> {
@@ -216,9 +229,6 @@ fn init_cli(game: GameType) -> Result<CliResources> {
         #[cfg(feature = "ocr")]
         &ocr
     );
-    let log: Arc<dyn Fn(&str) + Send + Sync> = Arc::new(|msg| println!("{msg}"));
-    let l = log.clone();
-    engine.on_print(move |msg: &str| l(msg));
 
     match game {
         #[cfg(feature = "dna")]
@@ -236,7 +246,6 @@ fn init_cli(game: GameType) -> Result<CliResources> {
         pad,
         state,
         engine: Arc::new(engine),
-        log,
     })
 }
 
@@ -255,7 +264,7 @@ fn run_task(res: &CliResources, args: &Args, task: &str) -> Result<()> {
     *k!(&res.state.cur_turn) = 1;
     let exit = Arc::new(AtomicBool::new(false));
     let reset = Arc::new(AtomicBool::new(false));
-    println!("开始任务：{task}");
+    log!("开始任务：{task}");
     match res.game {
         #[cfg(feature = "dna")]
         GameType::Dna => dna::run(
@@ -266,7 +275,6 @@ fn run_task(res: &CliResources, args: &Args, task: &str) -> Result<()> {
             exit,
             reset,
             timeout,
-            res.log.clone(),
             res.vision.clone(),
             res.pad.clone(),
             meta.r#loop,
@@ -280,11 +288,10 @@ fn run_task(res: &CliResources, args: &Args, task: &str) -> Result<()> {
             exit,
             reset,
             timeout,
-            res.log.clone(),
         )?,
     }
         crate::audio::disable_all();
-    println!("任务完成：{task}");
+    log!("任务完成：{task}");
     Ok(())
 }
 

@@ -5,7 +5,8 @@
 
 **安装与使用**
 1. 先装手柄驱动 [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe)
-2. 程序本体开箱即用，同时支持命令行跑批
+2. [下载地址](https://github.com/nyfair/elysium/releases/tag/latest)，full为完全版，其余为单一游戏版
+3. 程序本体开箱即用，同时支持命令行跑批
 
 **预览**  
 1. **tui模式**  
@@ -18,3 +19,5 @@
 使用同为ViGEmBus作者制作的 [HidHide](https://github.com/nefarius/HidHide)，把虚拟手柄针对你玩的游戏藏起来，挂机打游戏两不误
 2. **为什么应用名和项目名不一样？**  
 应用白名单机制，而且截图的原理和该款应用一致
+3. **为什么不同游戏文件大小差别巨大？**  
+ocr功能捆绑了PaddleOCRv6模型（18MB），不同游戏assets资源也不一样，
