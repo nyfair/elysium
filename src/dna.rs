@@ -91,6 +91,7 @@ pub fn run(
         }
 
         *k!(&state.pause) = false;
+        *k!(&state.cur_turn) = 1;
         let handle = spawn_script(engine.clone(), ast.clone(), scope.clone());
         let start = Instant::now();
         let mut started = false;
@@ -116,6 +117,7 @@ pub fn run(
         };
         let _ = handle.join();
         stop_combo();
+        k!(pad).reset();
         STOP.store(false, Ordering::SeqCst);
 
         match reason {

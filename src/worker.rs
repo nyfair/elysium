@@ -273,6 +273,7 @@ fn run_inner(
     }
     #[cfg(feature = "dna")]
     crate::dna::stop_combo();
+    k!(resources.pad).reset();
     crate::audio::disable_all();
     resources.vision.stop();
     k!(shared).running = false;
@@ -312,6 +313,7 @@ fn run_custom_inner(
     #[cfg(feature = "dna")]
     crate::dna::stop_combo();
     STOP.store(false, Ordering::SeqCst);
+    k!(resources.pad).reset();
     crate::audio::disable_all();
     resources.vision.stop();
     k!(shared).running = false;
