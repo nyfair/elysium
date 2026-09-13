@@ -74,60 +74,80 @@ pub fn run(
         .iter_functions()
         .any(|f| f.name == "task_ended");
 
+    let mut start = Instant::now();
     loop {
         if exit.load(Ordering::SeqCst) {
             break;
         }
         STOP.store(false, Ordering::SeqCst);
-        if loop_enabled {
+
+        let ready = if loop_enabled {
             log!("等待任务结束");
             let mut s = (*scope).clone();
-            while !detect_ended(&engine, &ast, &mut s, &vision, has_script_ended)? {
+            let mut ended = false;
+            loop {
+                if detect_ended(&engine, &ast, &mut s, &vision, has_script_ended)? {
+                    ended = true;
+                    break;
+                }
                 if exit.load(Ordering::SeqCst) {
                     return Ok(());
                 }
+                if start.elapsed() > timeout {
+                    break;
+                }
                 sleep(0.5);
             }
-        }
+            ended
+        } else {
+            true
+        };
 
-        *k!(&state.pause) = false;
-        *k!(&state.cur_turn) = 1;
-        let handle = spawn_script(engine.clone(), ast.clone(), scope.clone());
-        let start = Instant::now();
-        let mut started = false;
-
-        let reason = loop {
-            if loop_enabled {
-                if !started && start.elapsed() >= Duration::from_secs(5) {
-                    started = true;
-                }
-                let mut s = (*scope).clone();
-                if started && detect_ended(&engine, &ast, &mut s, &vision, has_script_ended)? {
-                    sleep(0.5);
-                    if detect_ended(&engine, &ast, &mut s, &vision, has_script_ended)? {
-                        STOP.store(true, Ordering::SeqCst);
-                        break StopReason::TaskEnded;
+        let reason = if ready {
+            start = Instant::now();
+            *k!(&state.pause) = false;
+            *k!(&state.cur_turn) = 1;
+            let handle = spawn_script(engine.clone(), ast.clone(), scope.clone());
+            let spawn_at = Instant::now();
+            let mut started = false;
+            let r = loop {
+                if loop_enabled {
+                    if !started && spawn_at.elapsed() >= Duration::from_secs(5) {
+                        started = true;
+                    }
+                    let mut s = (*scope).clone();
+                    if started && detect_ended(&engine, &ast, &mut s, &vision, has_script_ended)? {
+                        sleep(0.5);
+                        if detect_ended(&engine, &ast, &mut s, &vision, has_script_ended)? {
+                            STOP.store(true, Ordering::SeqCst);
+                            break StopReason::TaskEnded;
+                        }
                     }
                 }
-            }
-            if let Some(r) = check(&handle, &exit, &reset, timeout, start) {
-                break r;
-            }
-            sleep(0.5);
+                if let Some(r) = check(&handle, &exit, &reset, timeout, start) {
+                    break r;
+                }
+                sleep(0.5);
+            };
+            let _ = handle.join();
+            stop_combo();
+            k!(pad).reset();
+            STOP.store(false, Ordering::SeqCst);
+            r
+        } else {
+            StopReason::Timeout
         };
-        let _ = handle.join();
-        stop_combo();
-        k!(pad).reset();
-        STOP.store(false, Ordering::SeqCst);
 
         match reason {
             StopReason::Reset => {
                 log!("手动重置");
                 reset_task(&pad);
+                start = Instant::now();
             }
             StopReason::Timeout => {
                 log!("任务超时，正在重置");
                 reset_task(&pad);
+                start = Instant::now();
                 if !loop_enabled {
                     return Ok(());
                 }
