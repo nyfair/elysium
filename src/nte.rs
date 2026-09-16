@@ -23,10 +23,10 @@ pub fn launch(args: &Args) -> Result<()> {
     if let Some(exe) = &args.exe {
         cfg.exec = exe.clone();
         crate::save_launch_config("nte", &cfg.exec, &cfg.login)?;
-        log!("已更新启动配置：{}", cfg.exec);
+        log!("已更新启动配置：{}，之后可使用 obs64 nte launch 启动游戏", cfg.exec);
     }
     if cfg.exec.is_empty() {
-        anyhow::bail!("未配置启动器路径。用法：obs64 nte launch <启动器exe路径>");
+        anyhow::bail!("未配置启动器路径！使用方法：obs64 nte launch <安装目录\\NTELauncher\\NTELauncher.exe>");
     }
     log!("启动启动器：{}", cfg.exec);
     let mut child = Command::new(&cfg.exec)

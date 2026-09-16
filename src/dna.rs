@@ -21,10 +21,10 @@ pub fn launch(args: &Args) -> Result<()> {
     if let Some(exe) = &args.exe {
         cfg.exec = exe.clone();
         crate::save_launch_config("dna", &cfg.exec, &cfg.login)?;
-        log!("已更新启动配置：{}", cfg.exec);
+        log!("已更新启动配置：{}，之后可使用 obs64 dna launch 启动游戏", cfg.exec);
     }
     if cfg.exec.is_empty() {
-        anyhow::bail!("未配置游戏路径。用法：obs64 dna launch <游戏exe路径>");
+        anyhow::bail!("未配置游戏路径！使用方法：obs64 dna launch <安装目录\\EM\\Binaries\\Win64\\EM-Win64-Shipping.exe>");
     }
     log!("启动游戏：{}", cfg.exec);
     let mut child = Command::new(&cfg.exec)

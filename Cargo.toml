@@ -22,7 +22,8 @@ name = "obs64"
 path = "src/main.rs"
 
 [features]
-default = ["dna", "nte"]
+default = ["ap", "dna", "nte"]
+ap = []
 dna = []
 nte = ["ocr"]
 ocr = ["dep:ocr-rs"]

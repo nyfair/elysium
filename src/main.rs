@@ -8,6 +8,8 @@ mod script_engine;
 mod worker;
 mod tui;
 mod audio;
+#[cfg(feature = "ap")]
+mod ap;
 #[cfg(feature = "dna")]
 mod dna;
 #[cfg(feature = "nte")]
@@ -56,6 +58,8 @@ macro_rules! log_error {
 
 #[derive(ValueEnum, Clone, Debug, PartialEq, Eq)]
 pub enum GameType {
+    #[cfg(feature = "ap")]
+    Ap,
     #[cfg(feature = "dna")]
     Dna,
     #[cfg(feature = "nte")]
@@ -65,6 +69,8 @@ pub enum GameType {
 impl GameType {
     pub fn name(&self) -> &'static str {
         match self {
+            #[cfg(feature = "ap")]
+            GameType::Ap => "ap",
             #[cfg(feature = "dna")]
             GameType::Dna => "dna",
             #[cfg(feature = "nte")]
@@ -74,6 +80,8 @@ impl GameType {
 
     pub fn display(&self) -> &'static str {
         match self {
+            #[cfg(feature = "ap")]
+            GameType::Ap => "普罗米利亚",
             #[cfg(feature = "dna")]
             GameType::Dna => "两个陀螺",
             #[cfg(feature = "nte")]
@@ -83,6 +91,8 @@ impl GameType {
 
     pub fn title(&self) -> &'static str {
         match self {
+            #[cfg(feature = "ap")]
+            GameType::Ap => ap::WINDOW_TITLE,
             #[cfg(feature = "dna")]
             GameType::Dna => dna::WINDOW_TITLE,
             #[cfg(feature = "nte")]
@@ -195,6 +205,8 @@ fn main() -> Result<()> {
 
     if task == "launch" {
         return match game {
+            #[cfg(feature = "ap")]
+            GameType::Ap => ap::launch(&args),
             #[cfg(feature = "dna")]
             GameType::Dna => dna::launch(&args),
             #[cfg(feature = "nte")]
@@ -232,6 +244,10 @@ fn init_cli(game: GameType) -> Result<CliResources> {
     );
 
     match game {
+        #[cfg(feature = "ap")]
+        GameType::Ap => {
+            // ap::setup_engine(&mut engine, &pad, &state);
+        }
         #[cfg(feature = "dna")]
         GameType::Dna => {
             dna::setup_engine(&mut engine, &pad, &state);
@@ -267,6 +283,16 @@ fn run_task(res: &CliResources, args: &Args, task: &str) -> Result<()> {
     let reset = Arc::new(AtomicBool::new(false));
     log!("开始任务：{task}");
     match res.game {
+        #[cfg(feature = "ap")]
+        GameType::Ap => ap::run(
+            res.engine.clone(),
+            ast,
+            scope,
+            &res.state,
+            exit,
+            reset,
+            timeout,
+        )?,
         #[cfg(feature = "dna")]
         GameType::Dna => dna::run(
             res.engine.clone(),
@@ -291,7 +317,7 @@ fn run_task(res: &CliResources, args: &Args, task: &str) -> Result<()> {
             timeout,
         )?,
     }
-        crate::audio::disable_all();
+    crate::audio::disable_all();
     log!("任务完成：{task}");
     Ok(())
 }

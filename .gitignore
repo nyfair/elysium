@@ -5,6 +5,8 @@
 !.gitmodules
 !/src/
 !/src/**
+!/ap/
+!/ap/**
 !/dna/
 !/dna/**
 !/nte/

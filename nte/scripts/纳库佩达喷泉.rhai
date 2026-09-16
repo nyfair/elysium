@@ -65,5 +65,6 @@ for b in 0..BOOST { click(DOWN); }
 for i in 0..20 {
     click(A);
 }
-lstick(0, -30000, 1.0);
+lstick(0, -30000, 0.0);
+wait_loading();
 lstick();

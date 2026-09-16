@@ -91,6 +91,8 @@ struct App {
 impl App {
     fn new(args: &Args) -> Self {
         let games = vec![
+            #[cfg(feature = "ap")]
+            GameType::Ap,
             #[cfg(feature = "dna")]
             GameType::Dna,
             #[cfg(feature = "nte")]
