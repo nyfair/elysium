@@ -29,7 +29,7 @@ use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::Shell::{IsUserAnAdmin, ShellExecuteW};
 use windows::Win32::UI::WindowsAndMessaging::{
-    PostMessageW, SW_SHOWNORMAL, SetProcessDPIAware, WM_LBUTTONDOWN, WM_LBUTTONUP,
+    PostMessageW, SetProcessDPIAware, SW_SHOWNORMAL, WM_LBUTTONDOWN, WM_LBUTTONUP,
 };
 use windows_capture::window::Window;
 
