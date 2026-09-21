@@ -14,11 +14,7 @@ jobs:
           - name: full
             archive: elysium-full.7z
             cargo_args: ""
-            files: "*.exe ap dna nte *.md user*"
-          - name: ap
-            archive: elysium-ap.7z
-            cargo_args: "--no-default-features --features ap"
-            files: "*.exe ap *.md user-ap-scripts"
+            files: "*.exe dna nte *.md user*"
           - name: dna
             archive: elysium-dna.7z
             cargo_args: "--no-default-features --features dna"

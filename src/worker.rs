@@ -125,8 +125,6 @@ fn init_resources(
 ) -> Result<Resources> {
     let game_name = game.name();
     let title = match game {
-        #[cfg(feature = "ap")]
-        GameType::Ap => crate::ap::WINDOW_TITLE,
         #[cfg(feature = "dna")]
         GameType::Dna => crate::dna::WINDOW_TITLE,
         #[cfg(feature = "nte")]
@@ -168,10 +166,6 @@ fn init_resources(
     *k!(LOG_SINK) = Some(Arc::new(move |msg: &str| SharedState::push_log(&sh, msg.to_string())));
 
     match game {
-        #[cfg(feature = "ap")]
-        GameType::Ap => {
-            // crate::ap::setup_engine(&mut engine, &pad, state);
-        }
         #[cfg(feature = "dna")]
         GameType::Dna => {
             crate::dna::setup_engine(&mut engine, &pad, state);
@@ -250,16 +244,6 @@ fn run_inner(
 
     k!(shared).running = true;
     let result = match game {
-        #[cfg(feature = "ap")]
-        GameType::Ap => crate::ap::run(
-            resources.engine.clone(),
-            ast,
-            scope,
-            state,
-            exit.clone(),
-            reset.clone(),
-            timeout,
-        ),
         #[cfg(feature = "dna")]
         GameType::Dna => crate::dna::run(
             resources.engine.clone(),
