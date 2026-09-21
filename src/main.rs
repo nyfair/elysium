@@ -198,7 +198,7 @@ fn main() -> Result<()> {
     if task == "act" {
         let window = Window::from_contains_name(game.title())
             .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{}", e))?;
-        vision::activate_window(&window, false);
+        vision::activate_window(&window, true);
         log!("窗口已激活");
         return Ok(());
     }

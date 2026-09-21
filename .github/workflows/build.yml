@@ -27,7 +27,6 @@ jobs:
             archive: elysium-nte.7z
             cargo_args: "--no-default-features --features nte"
             files: "*.exe nte *.md user-nte-scripts"
-
     steps:
     - name: Prepare
       run: git config --global core.autocrlf false
@@ -49,7 +48,6 @@ jobs:
         move target\release\*.exe .
         upx --ultra-brute *.exe
         7z a ${{ matrix.archive }} ${{ matrix.files }}
-
     - name: Upload
       uses: svenstaro/upload-release-action@v2
       with:

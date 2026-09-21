@@ -5,4 +5,17 @@
 //   "timeout": 3600
 // }
 
-wait(10.0);
+// wait(10.0);
+loop {
+    let img = shot();
+    let t = ocr(img, 580, 572, 132, 64);
+    print(t);
+    if t.contains("开始旅程") {
+        break
+    } else {
+        t = ocr(img, 100, 643, 1080, 72);
+        print(t);
+        wait(2.0);
+    }
+}
+click(Y);
