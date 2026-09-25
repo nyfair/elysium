@@ -28,11 +28,11 @@ pub fn launch(args: &Args) -> Result<()> {
     if cfg.exec.is_empty() {
         anyhow::bail!("未配置启动器路径！使用方法：obs64 nte launch <安装目录\\NTELauncher\\NTELauncher.exe>");
     }
-    log!("启动启动器：{}", cfg.exec);
+    log!("启动 {}", cfg.exec);
     let mut child = Command::new(&cfg.exec)
         .spawn()
         .with_context(|| format!("启动进程失败：{}", cfg.exec))?;
-    let window = crate::wait_window("异环启动器", &mut child, 10)?;
+    let window = crate::wait_window("NTEGame", &mut child, 10)?;
     crate::vision::activate_window(&window, false);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
@@ -79,7 +79,7 @@ pub fn launch(args: &Args) -> Result<()> {
 }
 
 const CHARACTER_JSON: &str = "nte/DataTable/Character/DT_Character.json";
-const AVATAR_DIR: &str = "nte/UI_Icon/AvatarImage/CustomAvatar/256";
+const AVATAR_DIR: &str = "nte/UI_Icon/AvatarImage/256";
 const TP_JSON: &str = "nte/tp.json";
 
 pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
@@ -163,9 +163,6 @@ pub fn load_characters() -> Result<Vec<Character>> {
         let asset = info["ItemIconBig"]["AssetPathName"]
             .as_str()
             .context("缺少 ItemIconBig.AssetPathName")?
-            .rsplit('/')
-            .next()
-            .unwrap_or("")
             .to_string();
         if !seen.insert(asset.clone()) {
             continue;
