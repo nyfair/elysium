@@ -83,16 +83,16 @@ const AVATAR_DIR: &str = "nte/UI_Icon/AvatarImage/256";
 const TP_JSON: &str = "nte/tp.json";
 
 pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
-    (1162, 133, 64, 64),
-    (1162, 221, 64, 64),
-    (1162, 309, 64, 64),
-    (1162, 397, 64, 64),
+    (1165, 128, 64, 64),
+    (1165, 216, 64, 64),
+    (1165, 304, 64, 64),
+    (1165, 392, 64, 64),
 ];
 
 const FEATURE_SIZE: u32 = 64;
 const MASK_RADIUS_RATIO: f32 = 0.42;
 const SCORE_MIN: f32 = 0.55;
-const SCORE_GAP: f32 = 0.01;
+const SCORE_GAP: f32 = 0.001;
 const VARIANCE_MIN: f32 = 0.025;
 const SOUND_DIR: &str = "nte/sounds";
 const DODGE_THRESHOLD: f64 = 0.16;

@@ -41,13 +41,13 @@ lstick(0, 30000, 1.0);
 lstick();
 click(B, 0.1, 0.6);
 for b in 0..p {
-    lstick(0, -30000, 0.2);
-    lstick();
+    lstick(0, -12000, 0.1);
+    lstick(0, 0, 0.1);
 }
+click(A, 0.2, 2.0);
 
 while stamina > 0 {
-    click(A);
-    lstick(0, 30000, 9.0);
+    lstick(0, 30000, 7.0);
     lstick();
     bs::battle(team);
     pad_reset();
@@ -103,5 +103,10 @@ while stamina > 0 {
         click(A, 0.1, 2.0);
         print("领取奖励");
         stamina -= 40;
+    }
+    if stamina < 40 {
+        click(B, 0.1, 2.0);
+    } else {
+        click(A, 0.1, 0.5)
     }
 }
