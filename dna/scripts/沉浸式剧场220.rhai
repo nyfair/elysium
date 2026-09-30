@@ -1,6 +1,6 @@
 // {
 //   "author": "",
-//   "desc": "不朽剧目高配芙罗拉，适配720p+120fps",
+//   "desc": "不朽剧目高配挂机，boost 1=芙罗拉 2=伊薇 3=莉兹贝尔",
 //   "loop": true,
 //   "timeout": 600
 // }
@@ -20,11 +20,6 @@ fn check() {
         return 0
     }
     return 2
-}
-
-fn boss() {
-    let img = shot();
-    pixel_like(img, 406, 85, 0, 0, 0, 20) && !pixel_like(img, 405, 82, 0, 0, 0, 20)
 }
 
 let img = shot();
@@ -49,7 +44,14 @@ for i in 0..3 {
     lstick();
 }
 
-run_combo("q3e1e1e1e1e1e1e1e1");
+switch BOOST {
+    1 => run_combo("q3e1e1"),
+    2 => run_combo("q3e1e1e1e1e1e1e1e1"),
+    3 => {
+        run_combo("q3");
+        click(X, 6.5, 0.1);
+    },
+}
 loop {
     switch check() {
         0 => {
@@ -63,7 +65,18 @@ loop {
                 2 => lstick(0, 10000),
                 3 => lstick(0, -10000),
             }
-            wait(1.0);
+            switch BOOST {
+                1 => run_combo("e0L1"),
+                2 => wait(1.0),
+                3 => {
+                    switch rand(2) {
+                        0 => rstick(-30000, 0, 0.2),
+                        1 => rstick(30000, 0, 0.2),
+                    }
+                    rstick();
+                    run_combo("L1");
+                },
+            }
         },
         2 => break,
     }
@@ -74,9 +87,13 @@ pad_reset();
 loop {
     if check() == 2 {
         click(RS);
-        run_combo("e0w0");
+        switch BOOST {
+            1 => run_combo("e0L1"),
+            2 => run_combo("e1w0"),
+            3 => run_combo("L1w0"),
+        }
     } else {
         pad_reset();
-        wait(0.2);
+        wait(0.1);
     }
 }
