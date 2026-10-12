@@ -5,13 +5,11 @@
 //   "timeout": 90
 // }
 
-click(LB);
-press(LB);
-rstick(0, 20000, 0.1);
-rstick(0, 0, 0.1);
-release(LB);
-press(RIGHT, 0.7);
-release(RIGHT);
+click(START);
+click(RIGHT, 0.18, 0.18);
+click(RIGHT, 0.18, 0.18);
+click(RIGHT, 0.18, 0.18);
+click(RIGHT, 0.18, 0.18);
 click(A, 0.1, 0.6);
 click(DOWN);
 click(A);
@@ -22,9 +20,12 @@ click(A);
 click(A, 0.1, 1.5);
 click(B);
 click(B, 0.1, 0.6);
-click(B, 0.1, 0.9);
+click(B, 0.1, 0.6);
+click(B, 0.1, 0.6);
 
-press(RIGHT, 0.5);
+click(RIGHT, 0.18, 0.18);
+click(RIGHT, 0.18, 0.18);
+click(RIGHT, 0.18, 0.18);
 click(A, 0.1, 0.6);
 click(DOWN);
 click(Y, 0.1, 1.5);

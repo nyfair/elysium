@@ -1,6 +1,6 @@
 // {
 //   "author": "",
-//   "desc": "不朽剧目高配挂机，boost 1=芙罗拉 2=伊薇 3=莉兹贝尔",
+//   "desc": "不朽剧目高配挂机，turn 1=芙罗拉 2=伊薇 3=莉兹贝尔",
 //   "loop": true,
 //   "timeout": 600
 // }
@@ -13,13 +13,13 @@ fn task_ended(img) {
 }
 
 fn check() {
-    let f = find_line(shot(), 409, 72, 150, 15, 0, 0, 0, 0, true, true, true, 20, 148);
+    let f = find_line(shot(), 409, 72, 250, 15, 0, 0, 0, 0, true, true, true, 70, 248);
     if f[1] > 77 {
         return 1
-    } else if f[1] == 0 {
-        return 0
+    } else if f[1] > 71 {
+        return 2
     }
-    return 2
+    return 0
 }
 
 let img = shot();
@@ -44,7 +44,7 @@ for i in 0..3 {
     lstick();
 }
 
-switch BOOST {
+switch TURN {
     1 => run_combo("q3e1e1"),
     2 => run_combo("q3e1e1e1e1e1e1e1e1"),
     3 => {
@@ -65,13 +65,13 @@ loop {
                 2 => lstick(0, 10000),
                 3 => lstick(0, -10000),
             }
-            switch BOOST {
+            switch TURN {
                 1 => run_combo("e0L1"),
                 2 => wait(1.0),
                 3 => {
                     switch rand(2) {
-                        0 => rstick(-30000, 0, 0.2),
-                        1 => rstick(30000, 0, 0.2),
+                        0 => rstick(-30000, 0, 0.33),
+                        1 => rstick(30000, 0, 0.33),
                     }
                     rstick();
                     run_combo("L1");
@@ -87,7 +87,7 @@ pad_reset();
 loop {
     if check() == 2 {
         click(RS);
-        switch BOOST {
+        switch TURN {
             1 => run_combo("e0L1"),
             2 => run_combo("e1w0"),
             3 => run_combo("L1w0"),

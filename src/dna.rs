@@ -82,7 +82,6 @@ pub fn run(
         STOP.store(false, Ordering::SeqCst);
 
         let ready = if loop_enabled {
-            log!("等待任务结束");
             let mut s = (*scope).clone();
             let mut ended = false;
             loop {
