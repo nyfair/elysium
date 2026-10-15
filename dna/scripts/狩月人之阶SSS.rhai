@@ -25,7 +25,7 @@ click(RS, 0.04, 0.04);
 press(LB, 0.04);
 click(Y, 0.04, 0.8);
 release(LB, 0.04);
-for i in 0..25 {
+for i in 0..35 {
     click(X, 0.04, 0.04);
 }
 loop {

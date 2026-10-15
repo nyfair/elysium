@@ -39,7 +39,7 @@ if p == -1 {
 click(RS);
 lstick(0, 30000, 1.0);
 lstick();
-click(B, 0.1, 0.6);
+click(B, 0.1, 0.8);
 for b in 0..p {
     lstick(0, -12000, 0.1);
     lstick(0, 0, 0.1);

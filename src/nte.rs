@@ -333,11 +333,11 @@ fn locate(
     }
     if d > 0 {
         for _ in 0..d {
-            k!(pad).click(RIGHT, 0.1, 0.3);
+            k!(pad).click(RB, 0.1, 0.3);
         }
     } else if d < 0 {
         for _ in 0..-d {
-            k!(pad).click(LEFT, 0.1, 0.3);
+            k!(pad).click(LB, 0.1, 0.3);
         }
     }
     for _ in 0..type_idx {

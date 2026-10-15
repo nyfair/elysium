@@ -5,7 +5,7 @@
 //   "timeout": 90
 // }
 
-click(START);
+click(START, 0.1, 0.3);
 click(RIGHT, 0.18, 0.18);
 click(RIGHT, 0.18, 0.18);
 click(RIGHT, 0.18, 0.18);
