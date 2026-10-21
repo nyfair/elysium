@@ -14,7 +14,7 @@ jobs:
           - name: full
             archive: elysium-full.7z
             cargo_args: ""
-            files: "*.exe dna nte *.md user*"
+            files: "*.exe dna nte sp *.md user*"
           - name: dna
             archive: elysium-dna.7z
             cargo_args: "--no-default-features --features dna"
@@ -23,6 +23,10 @@ jobs:
             archive: elysium-nte.7z
             cargo_args: "--no-default-features --features nte"
             files: "*.exe nte *.md user-nte-scripts"
+          - name: sp
+            archive: elysium-sp.7z
+            cargo_args: "--no-default-features --features sp"
+            files: "*.exe sp *.md user-sp-scripts"
     steps:
     - name: Prepare
       run: git config --global core.autocrlf false

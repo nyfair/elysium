@@ -1,19 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use fast_image_resize::{FilterType, ResizeAlg};
 use image::{DynamicImage, ImageBuffer, Rgb};
-use rhai::{Array, Dynamic, Engine, Scope, AST};
+use rhai::{Array, Dynamic, Engine};
 
 use crate::input::*;
 use crate::ocr::Ocr;
-use crate::script_engine::{sleep, Frame, TaskState, STOP};
+use crate::script_engine::{sleep, Frame, TaskState};
 use crate::vision::{pixel_like, BASE_HEIGHT, BASE_WIDTH, MatchReport, TemplateSet, Vision};
-use crate::worker::{check, spawn_script};
 use crate::{Args, GameType, k, log, log_error};
 
 pub const WINDOW_TITLE: &str = "异环  ";
@@ -653,29 +650,5 @@ pub fn setup_engine(
         wait_loading(&v)
     });
     engine.register_fn("find_treasure", |img: Frame| -> Array { find_treasure(&k!(img)) });
-
     k!(pad).click(LB, 0.0334, 0.);
-}
-
-pub fn run(
-    engine: Arc<Engine>,
-    ast: Arc<AST>,
-    scope: Arc<Scope<'static>>,
-    _state: &TaskState,
-    exit: Arc<AtomicBool>,
-    reset: Arc<AtomicBool>,
-    timeout: std::time::Duration,
-) -> Result<()> {
-    STOP.store(false, Ordering::SeqCst);
-    let handle = spawn_script(engine.clone(), ast.clone(), scope.clone());
-    let start = Instant::now();
-    loop {
-        if check(&handle, &exit, &reset, timeout, start).is_some() {
-            break;
-        }
-        sleep(0.5);
-    }
-    let _ = handle.join();
-    STOP.store(false, Ordering::SeqCst);
-    Ok(())
 }

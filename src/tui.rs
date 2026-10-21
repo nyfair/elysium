@@ -95,6 +95,8 @@ impl App {
             GameType::Dna,
             #[cfg(feature = "nte")]
             GameType::Nte,
+            #[cfg(feature = "sp")]
+            GameType::Sp,
         ];
         let tasks = scan_tasks(&games[0]);
         let mut app = Self {

@@ -12,6 +12,8 @@ mod audio;
 mod dna;
 #[cfg(feature = "nte")]
 mod nte;
+#[cfg(feature = "sp")]
+mod sp;
 #[cfg(feature = "ocr")]
 mod ocr;
 
@@ -60,6 +62,8 @@ pub enum GameType {
     Dna,
     #[cfg(feature = "nte")]
     Nte,
+    #[cfg(feature = "sp")]
+    Sp,
 }
 
 impl GameType {
@@ -69,6 +73,8 @@ impl GameType {
             GameType::Dna => "dna",
             #[cfg(feature = "nte")]
             GameType::Nte => "nte",
+            #[cfg(feature = "sp")]
+            GameType::Sp => "sp",
         }
     }
 
@@ -78,6 +84,8 @@ impl GameType {
             GameType::Dna => "两个陀螺",
             #[cfg(feature = "nte")]
             GameType::Nte => "海特洛",
+            #[cfg(feature = "sp")]
+            GameType::Sp => "白银城",
         }
     }
 
@@ -87,6 +95,8 @@ impl GameType {
             GameType::Dna => dna::WINDOW_TITLE,
             #[cfg(feature = "nte")]
             GameType::Nte => nte::WINDOW_TITLE,
+            #[cfg(feature = "sp")]
+            GameType::Sp => sp::WINDOW_TITLE,
         }
     }
 }
@@ -199,6 +209,8 @@ fn main() -> Result<()> {
             GameType::Dna => dna::launch(&args),
             #[cfg(feature = "nte")]
             GameType::Nte => nte::launch(&args),
+            #[cfg(feature = "sp")]
+            GameType::Sp => sp::launch(&args),
         };
     }
 
@@ -239,6 +251,10 @@ fn init_cli(game: GameType) -> Result<CliResources> {
         #[cfg(feature = "nte")]
         GameType::Nte => {
             nte::setup_engine(&mut engine, &pad, &state, &vision, &ocr);
+        }
+        #[cfg(feature = "sp")]
+        GameType::Sp => {
+            // sp::setup_engine(&mut engine, &pad, &state, &vision, &ocr);
         }
     }
     Ok(CliResources {
@@ -281,7 +297,17 @@ fn run_task(res: &CliResources, args: &Args, task: &str) -> Result<()> {
             meta.r#loop,
         )?,
         #[cfg(feature = "nte")]
-        GameType::Nte => nte::run(
+        GameType::Nte => worker::run(
+            res.engine.clone(),
+            ast,
+            scope,
+            &res.state,
+            exit,
+            reset,
+            timeout,
+        )?,
+        #[cfg(feature = "sp")]
+        GameType::Sp => worker::run(
             res.engine.clone(),
             ast,
             scope,

@@ -9,6 +9,8 @@
 !/dna/**
 !/nte/
 !/nte/**
+!/sp/
+!/sp/**
 !Cargo.toml
 !*.md
 !/rust-paddle-ocr/

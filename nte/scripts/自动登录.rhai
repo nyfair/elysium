@@ -36,9 +36,9 @@ loop {
     if t.contains("异晶") {
         print(t);
         click(B, 0.1, 0.6);
-        click(B, 0.1, 0.6);
-        click(A, 0.1, 0.6);
-        click(A, 0.1, 1.0);
+        click(B, 0.1, 1.0);
+        click(B, 0.1, 1.0);
+        click(B, 0.1, 1.0);
         break
     }
     sleep(0.5);

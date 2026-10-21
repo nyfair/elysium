@@ -129,6 +129,8 @@ fn init_resources(
         GameType::Dna => crate::dna::WINDOW_TITLE,
         #[cfg(feature = "nte")]
         GameType::Nte => crate::nte::WINDOW_TITLE,
+        #[cfg(feature = "sp")]
+        GameType::Sp => crate::sp::WINDOW_TITLE,
     };
     let window = windows_capture::window::Window::from_contains_name(title)
         .map_err(|e| anyhow::anyhow!("找不到游戏窗口：{e}"))?;
@@ -173,6 +175,10 @@ fn init_resources(
         #[cfg(feature = "nte")]
         GameType::Nte => {
             crate::nte::setup_engine(&mut engine, &pad, state, &vision, &ocr);
+        }
+        #[cfg(feature = "sp")]
+        GameType::Sp => {
+            // crate::sp::setup_engine(&mut engine, &pad, state, &vision, &ocr);
         }
     }
     let engine = Arc::new(engine);
@@ -220,6 +226,29 @@ pub fn spawn_custom(game: GameType, script: String, args: Args) -> Result<Worker
     Ok(Worker { shared, state, exit, reset, thread })
 }
 
+pub fn run(
+    engine: Arc<Engine>,
+    ast: Arc<AST>,
+    scope: Arc<Scope<'static>>,
+    _state: &TaskState,
+    exit: Arc<AtomicBool>,
+    reset: Arc<AtomicBool>,
+    timeout: std::time::Duration,
+) -> Result<()> {
+    STOP.store(false, Ordering::SeqCst);
+    let handle = spawn_script(engine.clone(), ast.clone(), scope.clone());
+    let start = Instant::now();
+    loop {
+        if check(&handle, &exit, &reset, timeout, start).is_some() {
+            break;
+        }
+        sleep(0.5);
+    }
+    let _ = handle.join();
+    STOP.store(false, Ordering::SeqCst);
+    Ok(())
+}
+
 fn run_inner(
     game: GameType,
     task: String,
@@ -258,7 +287,17 @@ fn run_inner(
             meta.r#loop,
         ),
         #[cfg(feature = "nte")]
-        GameType::Nte => crate::nte::run(
+        GameType::Nte => run(
+            resources.engine.clone(),
+            ast,
+            scope,
+            state,
+            exit.clone(),
+            reset.clone(),
+            timeout,
+        ),
+        #[cfg(feature = "sp")]
+        GameType::Sp => run(
             resources.engine.clone(),
             ast,
             scope,
