@@ -1,6 +1,6 @@
 // {
 //   "author": "",
-//   "desc": "自动登录并识别基础信息，启动游戏请使用obs64 launch nte",
+//   "desc": "自动登录并识别基础信息，启动游戏请使用obs64 nte launch",
 //   "loop": false,
 //   "timeout": 3600
 // }

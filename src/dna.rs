@@ -35,6 +35,7 @@ pub fn launch(args: &Args) -> Result<()> {
         log!("未配置登录脚本，启动完成");
         return Ok(());
     }
+    std::thread::sleep(std::time::Duration::from_millis(10000));
     crate::run_cli(args, GameType::Dna, &cfg.login)
 }
 

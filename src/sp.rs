@@ -68,6 +68,7 @@ pub fn launch(args: &Args) -> Result<()> {
     }
     std::thread::sleep(std::time::Duration::from_millis(2000));
     crate::vision::activate_window(&window, true);
+    std::thread::sleep(std::time::Duration::from_millis(10000));
     crate::run_cli(args, GameType::Sp, &cfg.login)
 }
 

@@ -1,17 +1,17 @@
 // {
 //   "author": "",
-//   "desc": "自动登录并识别基础信息，启动游戏请使用obs64 launch sp",
+//   "desc": "自动登录并识别基础信息，启动游戏请使用obs64 sp launch",
 //   "loop": false,
 //   "timeout": 3600
 // }
 
-wait(10.0);
 loop {
     let img = shot();
     let t = ocr(img, 464, 316, 360, 216);
     if t.contains("START") {
         wait(1.0);
-        click(A);
+        click(A, 0.1, 0.6);
+        click(A, 0.1, 0.6);
         break
     } else {
         t = ocr(img, 440, 606, 400, 100);
