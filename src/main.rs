@@ -254,7 +254,7 @@ fn init_cli(game: GameType) -> Result<CliResources> {
         }
         #[cfg(feature = "sp")]
         GameType::Sp => {
-            // sp::setup_engine(&mut engine, &pad, &state, &vision, &ocr);
+            sp::setup_engine(&mut engine, &pad, &state);
         }
     }
     Ok(CliResources {

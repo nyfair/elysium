@@ -13,6 +13,7 @@ use crate::script_engine::{sleep, Frame, TaskState};
 use crate::vision::{pixel_like, BASE_HEIGHT, BASE_WIDTH, MatchReport, TemplateSet, Vision};
 use crate::{Args, GameType, k, log, log_error};
 
+pub const LAUNCHER: &str = "NTEGame";
 pub const WINDOW_TITLE: &str = "异环  ";
 
 pub fn launch(args: &Args) -> Result<()> {
@@ -29,7 +30,7 @@ pub fn launch(args: &Args) -> Result<()> {
     let mut child = Command::new(&cfg.exec)
         .spawn()
         .with_context(|| format!("启动进程失败：{}", cfg.exec))?;
-    let window = crate::wait_window("NTEGame", &mut child, 10)?;
+    let window = crate::wait_window(LAUNCHER, &mut child, 10)?;
     crate::vision::activate_window(&window, false);
     std::thread::sleep(std::time::Duration::from_millis(500));
 
