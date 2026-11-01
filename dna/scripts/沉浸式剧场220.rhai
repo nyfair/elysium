@@ -66,7 +66,14 @@ loop {
                 3 => lstick(0, -10000),
             }
             switch TURN {
-                1 => run_combo("e0L1"),
+                1 => {
+                    run_combo("e0L0");
+                    switch rand(2) {
+                        0 => rstick(-30000, 0, 0.33),
+                        1 => rstick(30000, 0, 0.33),
+                    }
+                    rstick();
+                },
                 2 => wait(1.0),
                 3 => {
                     switch rand(2) {
