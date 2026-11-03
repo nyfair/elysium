@@ -13,7 +13,7 @@ use crate::script_engine::{sleep, Frame, TaskState};
 use crate::vision::{pixel_like, BASE_HEIGHT, BASE_WIDTH, MatchReport, TemplateSet, Vision};
 use crate::{Args, GameType, k, log, log_error};
 
-pub const LAUNCHER: &str = "NTEGame";
+pub const LAUNCHER: &str = "异环启动器";
 pub const WINDOW_TITLE: &str = "异环  ";
 
 pub fn launch(args: &Args) -> Result<()> {
