@@ -3,6 +3,8 @@
 !.github/**
 !.gitignore
 !.gitmodules
+!/.cargo/
+!/.cargo/config.toml
 !/src/
 !/src/**
 !/dna/

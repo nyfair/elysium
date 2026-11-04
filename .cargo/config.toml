@@ -1,0 +1,3 @@
+[env]
+MNN_INCLUDE_DIR = { value = "rust-paddle-ocr/include", relative = true }
+MNN_LIB_DIR = { value = "rust-paddle-ocr/lib", relative = true }

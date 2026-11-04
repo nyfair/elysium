@@ -10,8 +10,6 @@ jobs:
     - uses: ilammy/msvc-dev-cmd@v1
     - name: Compile
       run: |
-        git clone --depth 1 https://github.com/zibo-chen/rust-paddle-ocr
-        move rust-paddle-ocr/cpp ./
         gh release download -R alibaba/MNN --archive=zip
         7z x *.zip -bse0
         cd MNN*
@@ -24,9 +22,7 @@ jobs:
         move *.lib ../../lib/
         move ../include ../../
         cd ../../
-        cargo install bindgen-cli
-        bindgen cpp/include/mnn_wrapper.h -o mnn_bindings.rs --allowlist-function "mnnr_.*" --allowlist-type "MNN.*" --allowlist-type "MNNR.*" --no-layout-tests -- -Iinclude -Icpp/include
-        7z a mnn_bindings.7z mnn_bindings.rs include lib
+        7z a mnn_bindings.7z include lib
     - name: Upload
       uses: svenstaro/upload-release-action@v2
       with:
