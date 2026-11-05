@@ -265,6 +265,18 @@
         },
         "PlayerViewTagArray": ["输出", "主力输出"]
       },
+      "1074": {
+        "ItemIconBig": {
+          "AssetPathName": "player_074"
+        },
+        "ItemName": {
+          "SourceString": "Exe"
+        },
+        "ElementData": {
+          "CharacterElementType": "暗"
+        },
+        "PlayerViewTagArray": ["输出", "主力输出", "召唤"]
+      },
       "1075": {
         "ItemIconBig": {
           "AssetPathName": "player_yiluoyi"
@@ -288,6 +300,18 @@
           "CharacterElementType": "光"
         },
         "PlayerViewTagArray": ["输出", "主力输出"]
+      },
+      "1090": {
+        "ItemIconBig": {
+          "AssetPathName": "player_090"
+        },
+        "ItemName": {
+          "SourceString": "曳尔沐"
+        },
+        "ElementData": {
+          "CharacterElementType": "光"
+        },
+        "PlayerViewTagArray": ["增益", "即瞬环合", "输出增益", "爆发输出"]
       }
     }
   }
