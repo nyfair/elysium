@@ -9,7 +9,7 @@ use rhai::{AST, Engine, Scope};
 
 use crate::input::Gamepad;
 use crate::script_engine::{sleep, init_scope, new_engine, STOP, StopReason, ScriptMeta, TaskState};
-use crate::vision::{activate_window, load_assets, AssetMap, Vision};
+use crate::vision::{activate_window, Vision};
 use crate::{Args, GameType, k, log_error};
 
 const MAX_LOGS: usize = 200;
@@ -32,13 +32,7 @@ pub fn log_error_impl(msg: &str) {
     }
 }
 
-#[derive(Clone)]
-struct GameResources {
-    pad: Arc<Mutex<Gamepad>>,
-    assets: Arc<AssetMap>,
-}
-
-static RES_CACHE: Mutex<Option<(GameType, GameResources)>> = Mutex::new(None);
+static RES_CACHE: Mutex<Option<(GameType, Arc<Mutex<Gamepad>>)>> = Mutex::new(None);
 
 pub fn check(
     handle: &JoinHandle<()>,
@@ -139,28 +133,25 @@ fn init_resources(
     SharedState::push_log(shared, format!("正在捕获窗口：{title}"));
 
     let cached = k!(RES_CACHE).clone();
-    let (pad, assets) = match cached {
-        Some((g, res)) if g == game => {
-            k!(res.pad).reset();
-            (res.pad, res.assets)
+    let pad = match cached {
+        Some((g, pad)) if g == game => {
+            k!(pad).reset();
+            pad
         }
         _ => {
             let pad = Arc::new(Mutex::new(Gamepad::new()
                 .context("无法连接虚拟手柄：请以管理员身份运行，或确认已安装 ViGEmBus 驱动")?));
-            let assets = Arc::new(load_assets(game_name, vision.get_dimension().1)?);
-            *k!(RES_CACHE) = Some((
-                game.clone(),
-                GameResources { pad: pad.clone(), assets: assets.clone() },
-            ));
+            *k!(RES_CACHE) = Some((game.clone(), pad.clone()));
             SharedState::push_log(shared, "虚拟手柄已就绪".into());
-            (pad, assets)
+            pad
         }
     };
 
+    let image_dir = format!("{game_name}/images");
     #[cfg(feature = "ocr")]
     let ocr = crate::ocr::Ocr::global().context("无法初始化 OCR 引擎")?;
     let mut engine = new_engine(
-        &vision, &pad, &assets, state,
+        &vision, &pad, &image_dir, state,
         #[cfg(feature = "ocr")]
         &ocr
     );

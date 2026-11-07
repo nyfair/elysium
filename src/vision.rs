@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use fast_image_resize::{images::Image, FilterType, IntoImageView, PixelType, ResizeAlg, Resizer,};
 use image::{DynamicImage, GrayImage, ImageBuffer, Luma, Rgb, RgbaImage};
 use rustfft::num_complex::Complex;
@@ -26,8 +27,9 @@ use windows_capture::window::Window;
 
 use crate::{k, log_error};
 
-pub type AssetMap = HashMap<String, GrayImage>;
+const TEMPLATE_BASE_HEIGHT: f64 = 2160.;
 
+static TEMPLATES: Mutex<Option<HashMap<(PathBuf, u32), Arc<GrayImage>>>> = Mutex::new(None);
 static FFT_PLANNER: Mutex<Option<FftPlanner<f64>>> = Mutex::new(None);
 static SHOT_TRIGGER: AtomicBool = AtomicBool::new(false);
 static FRAME_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -276,55 +278,48 @@ impl Vision {
     }
 }
 
-pub fn load_assets(game: &str, scale_height: u32) -> Result<AssetMap> {
-    let path = format!("{game}/coco_annotations.json");
-    let file = match std::fs::File::open(&path) {
-        Ok(f) => f,
-        Err(_) => return Ok(HashMap::new()),
+pub fn load_template(image_dir: &str, name: &str, height: u32) -> Result<Arc<GrayImage>> {
+    let file = Path::new(name);
+    let file = if file.extension().is_some() {
+        file.to_path_buf()
+    } else {
+        file.with_extension("png")
     };
-    let scale = scale_height as f64 / 2160.;
-    let json: serde_json::Value = serde_json::from_reader(file)?;
-    let cats: HashMap<u64, String> = json["categories"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|c| (c["id"].as_u64().unwrap(), c["name"].as_str().unwrap().to_string()))
-        .collect();
-    let imgs: HashMap<u64, String> = json["images"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|i| (i["id"].as_u64().unwrap(), i["file_name"].as_str().unwrap().to_string()))
-        .collect();
-    let mut img_cache: HashMap<String, DynamicImage> = HashMap::new();
-    let mut assets = HashMap::new();
-
-    for ann in json["annotations"].as_array().unwrap() {
-        let name = cats.get(&ann["category_id"].as_u64().unwrap()).unwrap();
-        let path = imgs.get(&ann["image_id"].as_u64().unwrap()).unwrap();
-        if !img_cache.contains_key(path) {
-            let img_path = format!("{game}/{path}");
-            let raw = image::open(&img_path)?;
-            let w = (raw.width() as f64 * scale) as u32;
-            let h = (raw.height() as f64 * scale) as u32;
-            img_cache.insert(
-                path.clone(),
-                fast_resize(&raw, w, h, ResizeAlg::Convolution(FilterType::Lanczos3)),
-            );
-        }
-        let x = (ann["bbox"][0].as_f64().unwrap() * scale) as u32;
-        let y = (ann["bbox"][1].as_f64().unwrap() * scale) as u32;
-        let w = (ann["bbox"][2].as_f64().unwrap() * scale) as u32;
-        let h = (ann["bbox"][3].as_f64().unwrap() * scale) as u32;
-        let cropped_rgb = img_cache[path.as_str()].crop_imm(x, y, w, h).to_rgb8();
-        let gray = ImageBuffer::from_fn(w, h, |i, j| {
-            let p = cropped_rgb.get_pixel(i, j);
-            Luma([((p[0] as u32 + p[1] as u32 + p[2] as u32) / 3) as u8])
-        });
-        assets.insert(name.clone(), gray);
+    let path = Path::new(image_dir).join(file);
+    let key = (path.clone(), height);
+    if let Some(tpl) = k!(TEMPLATES).as_ref().and_then(|m| m.get(&key)).cloned() {
+        return Ok(tpl);
     }
 
-    Ok(assets)
+    let raw = image::open(&path).with_context(|| format!("读取模板失败：{}", path.display()))?;
+    let scale = height as f64 / TEMPLATE_BASE_HEIGHT;
+    let w = ((raw.width() as f64 * scale) as u32).max(1);
+    let h = ((raw.height() as f64 * scale) as u32).max(1);
+    let rgb = fast_resize(&raw, w, h, ResizeAlg::Convolution(FilterType::Lanczos3)).to_rgb8();
+    let gray = ImageBuffer::from_fn(w, h, |i, j| {
+        let p = rgb.get_pixel(i, j);
+        Luma([((p[0] as u32 + p[1] as u32 + p[2] as u32) / 3) as u8])
+    });
+    let tpl = Arc::new(gray);
+    let mut cache = k!(TEMPLATES);
+    cache.get_or_insert_with(HashMap::new).insert(key, tpl.clone());
+    Ok(tpl)
+}
+
+pub fn ncc_match_template(
+    image_dir: &str,
+    background: &ImageBuffer<Rgb<u8>, Vec<u8>>,
+    name: &str,
+    roi: Option<(u32, u32, u32, u32)>,
+) -> (u32, u32, f64) {
+    let tpl = match load_template(image_dir, name, background.height()) {
+        Ok(t) => t,
+        Err(e) => {
+            log_error!("加载模板“{name}”失败：{e:#}");
+            return (0, 0, 0.);
+        }
+    };
+    ncc_match(background, &tpl, roi)
 }
 
 pub fn get_pixel(img: &ImageBuffer<Rgb<u8>, Vec<u8>>, x: u32, y: u32) -> [u8; 3] {

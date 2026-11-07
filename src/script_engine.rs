@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use rhai::{Array, Dynamic, Engine, Map, Module, Scope};
 
 use crate::input::{Button, Gamepad};
-use crate::vision::{AssetMap, BASE_WIDTH, Vision, find_line, get_pixel, ncc_match, pixel_equal, pixel_like, scale_roi};
+use crate::vision::{BASE_WIDTH, Vision, find_line, get_pixel, ncc_match_template, pixel_equal, pixel_like, scale_roi};
 use crate::worker::log_impl;
 use crate::{Args, k, log_error};
 #[cfg(feature = "ocr")]
@@ -122,10 +122,20 @@ impl Default for ScriptMeta {
     }
 }
 
+fn ncc_match_asset(
+    image_dir: &str,
+    img: Frame,
+    name: &str,
+    roi: Option<(u32, u32, u32, u32)>,
+) -> Array {
+    let (x, y, score) = ncc_match_template(image_dir, &k!(img), name, roi);
+    vec![(x as i64).into(), (y as i64).into(), score.into()]
+}
+
 pub fn new_engine(
     vision: &Arc<Vision>,
     pad: &Arc<Mutex<Gamepad>>,
-    assets: &Arc<AssetMap>,
+    image_dir: &str,
     state: &TaskState,
     #[cfg(feature = "ocr")]
     ocr: &Arc<Ocr>,
@@ -215,24 +225,18 @@ pub fn new_engine(
             vec![cx.into(), cy.into(), count.into()]
         },
     );
-    let a = assets.clone();
-    engine.register_fn("ncc_match", move |img: Frame, tplt: &str| -> Array {
-        let img = k!(img);
-        let tpl = a.get(tplt).unwrap();
-        let (x, y, score) = ncc_match(&img, tpl, None);
-        vec![(x as i64).into(), (y as i64).into(), score.into()]
+    let dir = image_dir.to_string();
+    engine.register_fn("ncc_match", move |img: Frame, name: &str| -> Array {
+        ncc_match_asset(&dir, img, name, None)
     });
-    let a = assets.clone();
-    engine.register_fn("ncc_match", move |img: Frame, tplt: &str, x: i64, y: i64, w: i64, h: i64| -> Array {
-        let img = k!(img);
-        let tpl = a.get(tplt).unwrap();
+    let dir = image_dir.to_string();
+    engine.register_fn("ncc_match", move |img: Frame, name: &str, x: i64, y: i64, w: i64, h: i64| -> Array {
         let roi = if w > 0 && h > 0 {
             Some((x as u32, y as u32, w as u32, h as u32))
         } else {
             None
         };
-        let (x, y, score) = ncc_match(&img, tpl, roi);
-        vec![(x as i64).into(), (y as i64).into(), score.into()]
+        ncc_match_asset(&dir, img, name, roi)
     });
     let v = vision.clone();
     engine.register_fn("res_scale", move || -> Dynamic {

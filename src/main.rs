@@ -232,13 +232,13 @@ fn init_cli(game: GameType) -> Result<CliResources> {
     let vision = Arc::new(vision::Vision::start(window)?);
     let pad = Arc::new(Mutex::new(input::Gamepad::new()
         .context("无法连接虚拟手柄：请以管理员身份运行，或确认已安装 ViGEmBus 驱动")?));
-    let assets = Arc::new(vision::load_assets(game.name(), vision.get_dimension().1)?);
+    let image_dir = format!("{}/images", game.name());
     #[cfg(feature = "ocr")]
     let ocr = ocr::Ocr::global().context("无法初始化 OCR 引擎")?;
 
     let state = Arc::new(TaskState::default());
     let mut engine = script_engine::new_engine(
-        &vision, &pad, &assets, &state,
+        &vision, &pad, &image_dir, &state,
         #[cfg(feature = "ocr")]
         &ocr
     );
