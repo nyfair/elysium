@@ -295,6 +295,8 @@ fn run_task(res: &CliResources, args: &Args, task: &str) -> Result<()> {
             res.vision.clone(),
             res.pad.clone(),
             meta.r#loop,
+            meta.count_turns,
+            args.turn,
         )?,
         #[cfg(feature = "nte")]
         GameType::Nte => worker::run(

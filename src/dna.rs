@@ -10,7 +10,7 @@ use rhai::{AST, CallFnOptions, Engine, Scope};
 
 use crate::input::*;
 use crate::script_engine::{sleep, Frame, TaskState, StopReason, STOP};
-use crate::vision::{Vision, pixel_equal, pixel_like};
+use crate::vision::{Vision, pixel_like};
 use crate::worker::{check, spawn_script};
 use crate::{Args, GameType, k, log};
 
@@ -70,10 +70,22 @@ pub fn run(
     vision: Arc<Vision>,
     pad: Arc<Mutex<Gamepad>>,
     loop_enabled: bool,
+    count_turns: bool,
+    turn: u32,
 ) -> Result<()> {
     let has_script_ended = ast
         .iter_functions()
         .any(|f| f.name == "task_ended");
+
+    let turn_limit = if loop_enabled && count_turns {
+        Some(turn.max(1))
+    } else {
+        None
+    };
+    let mut completed_turns = 0u32;
+    if let Some(limit) = turn_limit {
+        log!("任务将执行 {limit} 次");
+    }
 
     let mut start = Instant::now();
     loop {
@@ -160,6 +172,17 @@ pub fn run(
             }
             StopReason::TaskEnded => {}
         }
+
+        if matches!(reason, StopReason::Finished | StopReason::TaskEnded) {
+            if let Some(limit) = turn_limit {
+                completed_turns += 1;
+                log!("完成第 {completed_turns} 次");
+                if completed_turns >= limit {
+                    log!("已达到最大执行次数：{limit}");
+                    break;
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -199,30 +222,30 @@ pub fn task_ended(img: Frame) -> Result<bool> {
     let img = &*k!(img);
     Ok(
         ((
-            pixel_equal(img, 879, 654, 0, 0, 0) ||
-            pixel_equal(img, 880, 654, 0, 0, 0) ||
-            pixel_equal(img, 881, 654, 0, 0, 0)
+            pixel_like(img, 879, 654, 0, 0, 0, 2) ||
+            pixel_like(img, 880, 654, 0, 0, 0, 2) ||
+            pixel_like(img, 881, 654, 0, 0, 0, 2)
         ) && (
-            pixel_equal(img, 1123, 654, 0, 0, 0) ||
-            pixel_equal(img, 1124, 654, 0, 0, 0) ||
-            pixel_equal(img, 1125, 654, 0, 0, 0)
+            pixel_like(img, 1123, 654, 0, 0, 0, 2) ||
+            pixel_like(img, 1124, 654, 0, 0, 0, 2) ||
+            pixel_like(img, 1125, 654, 0, 0, 0, 2)
         ) || (
-            pixel_equal(img, 879, 663, 0, 0, 0) ||
-            pixel_equal(img, 880, 663, 0, 0, 0) ||
-            pixel_equal(img, 881, 663, 0, 0, 0)
+            pixel_like(img, 879, 663, 0, 0, 0, 2) ||
+            pixel_like(img, 880, 663, 0, 0, 0, 2) ||
+            pixel_like(img, 881, 663, 0, 0, 0, 2)
         ) && (
-            pixel_equal(img, 1123, 663, 0, 0, 0) ||
-            pixel_equal(img, 1124, 663, 0, 0, 0) ||
-            pixel_equal(img, 1125, 663, 0, 0, 0)
+            pixel_like(img, 1123, 663, 0, 0, 0, 2) ||
+            pixel_like(img, 1124, 663, 0, 0, 0, 2) ||
+            pixel_like(img, 1125, 663, 0, 0, 0, 2)
         ) || (
-            pixel_equal(img, 879, 672, 0, 0, 0) ||
-            pixel_equal(img, 880, 672, 0, 0, 0) ||
-            pixel_equal(img, 881, 672, 0, 0, 0)
+            pixel_like(img, 879, 672, 0, 0, 0, 2) ||
+            pixel_like(img, 880, 672, 0, 0, 0, 2) ||
+            pixel_like(img, 881, 672, 0, 0, 0, 2)
         ) && (
-            pixel_equal(img, 1123, 672, 0, 0, 0) ||
-            pixel_equal(img, 1124, 672, 0, 0, 0) ||
-            pixel_equal(img, 1125, 672, 0, 0, 0)
-        )) && !pixel_equal(img, 900, 681, 0, 0, 0)
+            pixel_like(img, 1123, 672, 0, 0, 0, 2) ||
+            pixel_like(img, 1124, 672, 0, 0, 0, 2) ||
+            pixel_like(img, 1125, 672, 0, 0, 0, 2)
+        )) && !pixel_like(img, 900, 681, 0, 0, 0, 5)
     )
 }
 

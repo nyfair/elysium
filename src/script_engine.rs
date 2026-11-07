@@ -65,6 +65,7 @@ pub struct ScriptMeta {
     pub author: String,
     pub desc: String,
     pub r#loop: bool,
+    pub count_turns: bool,
     pub timeout: u64,
 }
 
@@ -103,6 +104,7 @@ impl ScriptMeta {
             author: v.get("author").and_then(|x| x.as_str()).unwrap_or("").to_string(),
             desc: v.get("desc").and_then(|x| x.as_str()).unwrap_or("").to_string(),
             r#loop: v.get("loop").and_then(|x| x.as_bool()).unwrap_or(true),
+            count_turns: v.get("count_turns").and_then(|x| x.as_bool()).unwrap_or(false),
             timeout: v.get("timeout").and_then(|x| x.as_u64()).unwrap_or(Self::DEFAULT_TIMEOUT),
         }
     }
@@ -114,6 +116,7 @@ impl Default for ScriptMeta {
             author: String::new(),
             desc: String::new(),
             r#loop: true,
+            count_turns: false,
             timeout: Self::DEFAULT_TIMEOUT,
         }
     }

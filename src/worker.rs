@@ -285,6 +285,8 @@ fn run_inner(
             resources.vision.clone(),
             resources.pad.clone(),
             meta.r#loop,
+            meta.count_turns,
+            args.turn,
         ),
         #[cfg(feature = "nte")]
         GameType::Nte => run(

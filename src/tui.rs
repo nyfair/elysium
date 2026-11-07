@@ -21,7 +21,7 @@ const PARAM_HELP: [&str; 5] = [
     "循环策略",
     "",
     "使用委托手册加成（1-4）/ 不使用 0",
-    "",
+    "执行次数/轮数（默认 99）",
 ];
 
 const ACCENT: Color = Color::Cyan;

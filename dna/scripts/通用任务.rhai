@@ -1,7 +1,8 @@
 // {
 //   "author": "",
-//   "desc": "驱离，避险，各类单次历练任务循环",
+//   "desc": "驱离，避险，各类单次历练任务循环，turn=执行次数",
 //   "loop": true,
+//   "count_turns": true,
 //   "timeout": 90
 // }
 
