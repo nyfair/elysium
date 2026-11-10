@@ -6,6 +6,7 @@
 // }
 
 fn get_score(template, x, y, w, h) {
+    let img = shot();
     let m = ncc_match(shot(), template, x, y, w, h);
     m[2]
 }
@@ -40,7 +41,7 @@ for i in 0..100 {
     }
     let chance = get_score("chance", 1070, 540, 120, 120);
     print(`luck:${chance}`);
-    if chance > 0.7 {
+    if chance > 0.4 {
         click(A, 0.1, 1.0);
         ease = true;
     } else {

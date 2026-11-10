@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use fast_image_resize::{images::Image, FilterType, IntoImageView, PixelType, ResizeAlg, Resizer,};
-use image::{DynamicImage, GrayImage, ImageBuffer, Luma, Rgb, RgbaImage};
+use image::{DynamicImage, GrayImage, ImageBuffer, Luma, Rgb, RgbImage, RgbaImage};
 use rustfft::num_complex::Complex;
 use rustfft::{FftDirection, FftPlanner};
 use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT, WPARAM};
@@ -29,7 +29,7 @@ use crate::{k, log_error};
 
 const TEMPLATE_BASE_HEIGHT: f64 = 2160.;
 
-static TEMPLATES: Mutex<Option<HashMap<(PathBuf, u32), Arc<GrayImage>>>> = Mutex::new(None);
+static TEMPLATES: Mutex<Option<HashMap<(PathBuf, u32), Arc<RgbImage>>>> = Mutex::new(None);
 static FFT_PLANNER: Mutex<Option<FftPlanner<f64>>> = Mutex::new(None);
 static SHOT_TRIGGER: AtomicBool = AtomicBool::new(false);
 static FRAME_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -278,7 +278,7 @@ impl Vision {
     }
 }
 
-pub fn load_template(image_dir: &str, name: &str, height: u32) -> Result<Arc<GrayImage>> {
+pub fn load_template(image_dir: &str, name: &str, height: u32) -> Result<Arc<RgbImage>> {
     let file = Path::new(name);
     let file = if file.extension().is_some() {
         file.to_path_buf()
@@ -296,11 +296,7 @@ pub fn load_template(image_dir: &str, name: &str, height: u32) -> Result<Arc<Gra
     let w = ((raw.width() as f64 * scale) as u32).max(1);
     let h = ((raw.height() as f64 * scale) as u32).max(1);
     let rgb = fast_resize(&raw, w, h, ResizeAlg::Convolution(FilterType::Lanczos3)).to_rgb8();
-    let gray = ImageBuffer::from_fn(w, h, |i, j| {
-        let p = rgb.get_pixel(i, j);
-        Luma([((p[0] as u32 + p[1] as u32 + p[2] as u32) / 3) as u8])
-    });
-    let tpl = Arc::new(gray);
+    let tpl = Arc::new(rgb);
     let mut cache = k!(TEMPLATES);
     cache.get_or_insert_with(HashMap::new).insert(key, tpl.clone());
     Ok(tpl)
@@ -417,8 +413,8 @@ pub fn find_line(
 }
 
 pub fn ncc_match(
-    background: &ImageBuffer<Rgb<u8>, Vec<u8>>,
-    template: &GrayImage,
+    background: &RgbImage,
+    template: &RgbImage,
     roi: Option<(u32, u32, u32, u32)>,
 ) -> (u32, u32, f64) {
     let bg_w = background.width();
@@ -430,55 +426,13 @@ pub fn ncc_match(
     };
     let tw = template.width();
     let th = template.height();
-    if rw < tw || rh < th {
+    if tw == 0 || th == 0 || rw < tw || rh < th {
         return (0, 0, 0.);
     }
 
-    let mut main = Vec::with_capacity((rw * rh) as usize);
-    for y in ry..ry + rh {
-        for x in rx..rx + rw {
-            let p = background.get_pixel(x, y);
-            main.push((p[0] as f32 + p[1] as f32 + p[2] as f32) / 3.);
-        }
-    }
-    let mut find = Vec::with_capacity((tw * th) as usize);
-    for p in template.pixels() {
-        find.push(p.0[0] as f32);
-    }
-    let main_norm = normalize(&main);
-    let find_norm = normalize(&find);
-
-    let m = next_pow2(rh + th - 1) as usize;
-    let n = next_pow2(rw + tw - 1) as usize;
-    let mut a = vec![Complex::new(0., 0.); m * n];
-    let mut b = vec![Complex::new(0., 0.); m * n];
-    let rw_u = rw as usize;
-    let tw_u = tw as usize;
-    let th_u = th as usize;
-    for j in 0..rh as usize {
-        for i in 0..rw_u {
-            a[j * n + i] = Complex::new(main_norm[j * rw_u + i] as f64, 0.);
-        }
-    }
-    for j in 0..th_u {
-        for i in 0..tw_u {
-            b[j * n + i] = Complex::new(
-                find_norm[(th_u - 1 - j) * tw_u + (tw_u - 1 - i)] as f64,
-                0.,
-            );
-        }
-    }
-
-    fft2d(&mut a, m, n, false);
-    fft2d(&mut b, m, n, false);
-    for i in 0..m * n {
-        a[i] *= b[i];
-    }
-    fft2d(&mut a, m, n, true);
-    let inv = 1. / (m * n) as f64;
-    for x in a.iter_mut() {
-        *x *= inv;
-    }
+    let Some(scores) = ncc_rgb_scores(background, template, (rx, ry, rw, rh)) else {
+        return (0, 0, 0.);
+    };
 
     let oh = (rh - th + 1) as usize;
     let ow = (rw - tw + 1) as usize;
@@ -486,38 +440,172 @@ pub fn ncc_match(
     let mut best_val = f64::NEG_INFINITY;
     for j in 0..oh {
         for i in 0..ow {
-            let v = a[(j + th_u - 1) * n + (i + tw_u - 1)].re;
+            let v = scores[j * ow + i];
             if v > best_val {
                 best_val = v;
                 best = (i, j);
             }
         }
     }
+    if best_val <= 0. || !best_val.is_finite() {
+        return (0, 0, 0.);
+    }
 
     let real_cx = best.0 as u32 + tw / 2 + rx;
     let real_cy = best.1 as u32 + th / 2 + ry;
-    let score = best_val / (tw * th) as f64;
     let base_cx = ((real_cx as f64) / (bg_w as f64 / BASE_WIDTH)).round() as u32;
     let base_cy = ((real_cy as f64) / (bg_h as f64 / BASE_HEIGHT)).round() as u32;
-    (base_cx, base_cy, score)
+    (base_cx, base_cy, best_val)
 }
 
-fn next_pow2(n: u32) -> u32 {
-    let mut v = n - 1;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v + 1
+fn ncc_rgb_scores(
+    background: &RgbImage,
+    template: &RgbImage,
+    roi: (u32, u32, u32, u32),
+) -> Option<Vec<f64>> {
+    let (rx, ry, rw, rh) = roi;
+    let (tw, th) = template.dimensions();
+    let samples = tw as f64 * th as f64;
+    let find: Vec<_> = template.pixels().map(ncc_features).collect();
+    let mean = find.iter().map(|p| p.0).sum::<f64>() / samples;
+    let luma_energy = find.iter().map(|p| (p.0 - mean).powi(2)).sum::<f64>();
+    let color_energy = find.iter().map(|p| p.1.norm_sqr()).sum::<f64>();
+    let total_energy = luma_energy + color_energy;
+    if total_energy <= 1e-8 {
+        return None;
+    }
+    let has_color = color_energy / total_energy >= 0.05;
+    let template_energy = if has_color { total_energy } else { luma_energy };
+
+    let m = fft_size(rh + th - 1);
+    let n = fft_size(rw + tw - 1);
+    let mut luma = vec![Complex::new(0., 0.); m * n];
+    let mut color = has_color.then(|| vec![Complex::new(0., 0.); m * n]);
+    let rw_u = rw as usize;
+    let tw_u = tw as usize;
+    let th_u = th as usize;
+    let stride = rw_u + 1;
+    let mut sums = vec![0.; stride * (rh as usize + 1)];
+    let mut luma_squares = vec![0.; sums.len()];
+    let mut color_squares = vec![0.; sums.len()];
+    for j in 0..rh as usize {
+        let mut row_sum = 0.;
+        let mut row_luma_square = 0.;
+        let mut row_color_square = 0.;
+        for i in 0..rw_u {
+            let (l, c) = ncc_features(background.get_pixel(rx + i as u32, ry + j as u32));
+            luma[j * n + i].re = l;
+            if let Some(color) = &mut color {
+                color[j * n + i] = c;
+            }
+            row_sum += l;
+            row_luma_square += l * l;
+            row_color_square += c.norm_sqr();
+            let index = (j + 1) * stride + i + 1;
+            sums[index] = sums[j * stride + i + 1] + row_sum;
+            luma_squares[index] = luma_squares[j * stride + i + 1] + row_luma_square;
+            color_squares[index] = color_squares[j * stride + i + 1] + row_color_square;
+        }
+    }
+    for j in 0..th_u {
+        for i in 0..tw_u {
+            luma[j * n + i].im = find[(th_u - 1 - j) * tw_u + tw_u - 1 - i].0 - mean;
+        }
+    }
+    if luma_energy > 1e-8 {
+        correlate_real_pair(&mut luma, m, n);
+    }
+    if let Some(color) = &mut color {
+        let mut kernel = vec![Complex::new(0., 0.); m * n];
+        for j in 0..th_u {
+            for i in 0..tw_u {
+                kernel[j * n + i] = find[(th_u - 1 - j) * tw_u + tw_u - 1 - i].1.conj();
+            }
+        }
+        fft2d(color, m, n, false);
+        fft2d(&mut kernel, m, n, false);
+        for (a, b) in color.iter_mut().zip(&kernel) {
+            *a *= b;
+        }
+        drop(kernel);
+        fft2d(color, m, n, true);
+    }
+    let inv = 1. / (m * n) as f64;
+
+    let oh = (rh - th + 1) as usize;
+    let ow = (rw - tw + 1) as usize;
+    let mut scores = vec![0.; oh * ow];
+    for j in 0..oh {
+        for i in 0..ow {
+            let sum = window_sum(&sums, stride, i, j, tw_u, th_u);
+            let sum_square = window_sum(&luma_squares, stride, i, j, tw_u, th_u);
+            let le = (sum_square - sum * sum / samples).max(0.);
+            let ce = if has_color {
+                window_sum(&color_squares, stride, i, j, tw_u, th_u).max(0.)
+            } else {
+                0.
+            };
+            let energy = le + ce;
+            if energy <= 1e-8 {
+                continue;
+            }
+            let index = (j + th_u - 1) * n + i + tw_u - 1;
+            let ld = if luma_energy > 1e-8 { luma[index].re * inv } else { 0. };
+            let cd = color.as_ref().map_or(0., |c| c[index].re * inv);
+            let mut score = ((ld + cd) / (energy * template_energy).sqrt()).clamp(-1., 1.);
+            if has_color {
+                score *= if ce > 1e-8 { (cd / (ce * color_energy).sqrt()).clamp(0., 1.) } else { 0. };
+            }
+            scores[j * ow + i] = score;
+        }
+    }
+    Some(scores)
 }
 
-fn normalize(data: &[f32]) -> Vec<f32> {
-    let n = data.len() as f32;
-    let mean = data.iter().sum::<f32>() / n;
-    let var = data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / n;
-    let std = var.sqrt() + 1e-8;
-    data.iter().map(|x| (x - mean) / std).collect()
+fn ncc_features(p: &Rgb<u8>) -> (f64, Complex<f64>) {
+    let (r, g, b) = (p[0] as f64, p[1] as f64, p[2] as f64);
+    ((r + g + b) * 0.5773502691896258,
+     Complex::new((r - g) * std::f64::consts::FRAC_1_SQRT_2, (r + g - 2. * b) * 0.4082482904638631))
+}
+
+fn correlate_real_pair(data: &mut [Complex<f64>], rows: usize, cols: usize) {
+    fft2d(data, rows, cols, false);
+    for r in 0..rows {
+        let mirror_row = if r == 0 { 0 } else { rows - r };
+        for c in 0..cols {
+            let i = r * cols + c;
+            let mirror = mirror_row * cols + if c == 0 { 0 } else { cols - c };
+            if i > mirror {
+                continue;
+            }
+            let a = data[i];
+            let b = data[mirror].conj();
+            let product = ((a + b) * 0.5) * ((a - b) * Complex::new(0., -0.5));
+            data[i] = product;
+            data[mirror] = product.conj();
+        }
+    }
+    fft2d(data, rows, cols, true);
+}
+
+fn fft_size(min: u32) -> usize {
+    let mut best = (min as usize).next_power_of_two();
+    let mut p2 = 1;
+    while p2 <= best {
+        let mut p3 = p2;
+        while p3 <= best {
+            let mut p5 = p3;
+            while p5 < min as usize { p5 *= 5; }
+            best = best.min(p5);
+            p3 *= 3;
+        }
+        p2 *= 2;
+    }
+    best
+}
+
+fn window_sum(sums: &[f64], stride: usize, x: usize, y: usize, w: usize, h: usize) -> f64 {
+    sums[(y + h) * stride + x + w] - sums[y * stride + x + w] - sums[(y + h) * stride + x] + sums[y * stride + x]
 }
 
 fn fft2d(data: &mut [Complex<f64>], rows: usize, cols: usize, inverse: bool) {
@@ -526,24 +614,32 @@ fn fft2d(data: &mut [Complex<f64>], rows: usize, cols: usize, inverse: bool) {
     } else {
         FftDirection::Forward
     };
-    let mut planner = k!(FFT_PLANNER);
-    let planner = planner.get_or_insert_with(FftPlanner::new);
-    {
-        let fft = planner.plan_fft(cols, direction);
-        for r in 0..rows {
-            fft.process(&mut data[r * cols..(r + 1) * cols]);
-        }
+    let (row_fft, col_fft) = {
+        let mut planner = k!(FFT_PLANNER);
+        let planner = planner.get_or_insert_with(FftPlanner::new);
+        (planner.plan_fft(cols, direction), planner.plan_fft(rows, direction))
+    };
+    let mut scratch = vec![Complex::new(0., 0.);
+        row_fft.get_inplace_scratch_len().max(col_fft.get_inplace_scratch_len())];
+    for row in data.chunks_exact_mut(cols) {
+        row_fft.process_with_scratch(row, &mut scratch);
     }
-    {
-        let fft = planner.plan_fft(rows, direction);
-        let mut col = vec![Complex::new(0., 0.); rows];
-        for c in 0..cols {
-            for r in 0..rows {
-                col[r] = data[r * cols + c];
-            }
-            fft.process(&mut col);
-            for r in 0..rows {
-                data[r * cols + c] = col[r];
+    let mut transposed = vec![Complex::new(0., 0.); rows * cols];
+    transpose(data, &mut transposed, rows, cols);
+    for row in transposed.chunks_exact_mut(rows) {
+        col_fft.process_with_scratch(row, &mut scratch);
+    }
+    transpose(&transposed, data, cols, rows);
+}
+
+fn transpose(src: &[Complex<f64>], dst: &mut [Complex<f64>], rows: usize, cols: usize) {
+    const BLOCK: usize = 8;
+    for r0 in (0..rows).step_by(BLOCK) {
+        for c0 in (0..cols).step_by(BLOCK) {
+            for r in r0..(r0 + BLOCK).min(rows) {
+                for c in c0..(c0 + BLOCK).min(cols) {
+                    dst[c * rows + r] = src[r * cols + c];
+                }
             }
         }
     }

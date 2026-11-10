@@ -23,17 +23,17 @@ let m = ncc_match(img, "track_point", 440, 160, 500, 300);
 print(m);
 if m[2] < 0.5 {
     reset();
-} else if abs(m[0] - 632) < 2 && abs(m[1] - 308) < 2 {
+} else if abs(m[0] - 632) < 2 && abs(m[1] - 307) < 2 {
     run_combo("w1j4");
     lstick(-10000, 10000, 0.05);
     lstick(0, 10000, 0.2);
     lstick();
-} else if abs(m[0] - 639) < 2 && abs(m[1] - 320) < 2 {
+} else if abs(m[0] - 639) < 2 && abs(m[1] - 318) < 2 {
     run_combo("w1j2");
     lstick(10000, 10000, 0.05);
     lstick(0, 10000, 0.1);
     lstick();
-} else if abs(m[0] - 858) < 2 && abs(m[1] - 214) < 2 {
+} else if abs(m[0] - 859) < 2 && abs(m[1] - 213) < 2 {
     run_combo("w1j1");
     rstick(0, 20000, 0.2);
     rstick();
@@ -41,34 +41,34 @@ if m[2] < 0.5 {
     lstick(10000, 0, 0.5);
     click(B, 0.1, 0.4);
     lstick();
-} else if abs(m[0] - 643) < 2 && abs(m[1] - 225) < 2 {
-    run_combo("w2j7");
-    lstick(10000, 10000, 0.1);
+} else if abs(m[0] - 662) < 2 && abs(m[1] - 226) < 2 {
+    run_combo("w2j5");
+    lstick(10000, 10000, 0.3);
     lstick();
-} else if abs(m[0] - 634) < 2 && abs(m[1] - 300) < 2 {
+} else if abs(m[0] - 634) < 2 && abs(m[1] - 299) < 2 {
     run_combo("w1j5");
 } else if abs(m[0] - 635) < 2 && abs(m[1] - 302) < 2 {
     run_combo("w1j3");
-} else if abs(m[0] - 666) < 2 && abs(m[1] - 361) < 2 {
+} else if abs(m[0] - 666) < 2 && abs(m[1] - 359) < 2 {
     run_combo("w1j2");
     lstick(10000, 10000, 0.5);
     lstick(0, 10000, 0.2);
     lstick();
-} else if abs(m[0] - 629) < 2 && abs(m[1] - 378) < 2 {
-    run_combo("w1j1w1j3");
-} else if abs(m[0] - 629) < 2 && abs(m[1] - 279) < 2 {
-    run_combo("w1j4");
+} else if abs(m[0] - 630) < 2 && abs(m[1] - 378) < 2 {
+    run_combo("w1j4w1");
+} else if abs(m[0] - 630) < 2 && abs(m[1] - 278) < 2 {
+    run_combo("w2j3w1");
     lstick(0, 10000, 0.2);
     lstick();
-} else if abs(m[0] - 585) < 2 && abs(m[1] - 400) < 2 {
+} else if abs(m[0] - 586) < 2 && abs(m[1] - 399) < 2 {
     run_combo("w1j3");
     lstick(-10000, 10000, 0.7);
     lstick();
-} else if abs(m[0] - 483) < 2 && abs(m[1] - 422) < 2 {
+} else if abs(m[0] - 484) < 2 && abs(m[1] - 421) < 2 {
     run_combo("w1j3");
     lstick(-10000, 10000, 4.3);
     lstick();
-    click(LS)
+    run_combo("j1a0");
 } else {
     reset();
 }
