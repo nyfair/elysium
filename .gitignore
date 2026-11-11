@@ -15,4 +15,5 @@
 !/sp/**
 !Cargo.toml
 !*.md
+!*.py
 !/rust-paddle-ocr/

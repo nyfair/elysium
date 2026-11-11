@@ -6,7 +6,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use rhai::{Array, Dynamic, Engine, Map, Module, Scope};
 
 use crate::input::{Button, Gamepad};
-use crate::vision::{BASE_WIDTH, Vision, find_line, get_pixel, ncc_match_template, pixel_equal, pixel_like, scale_roi};
+use crate::vision::{
+    BASE_WIDTH, Vision,
+    find_line, get_pixel, ncc_match_template, ncc_match_template_ex, pixel_equal, pixel_like, scale_roi
+};
 use crate::worker::log_impl;
 use crate::{Args, k, log_error};
 #[cfg(feature = "ocr")]
@@ -132,6 +135,41 @@ fn ncc_match_asset(
     vec![(x as i64).into(), (y as i64).into(), score.into()]
 }
 
+fn ncc_match_asset_ex(
+    image_dir: &str,
+    img: Frame,
+    spec: &Map,
+    roi: Option<(u32, u32, u32, u32)>,
+) -> Array {
+    let name = spec.get("file").and_then(|v| v.clone().into_string().ok()).unwrap_or_default();
+    let crop = spec.get("crop").and_then(|v| {
+        let arr = v.clone().into_array().ok()?;
+        if arr.len() == 4 {
+            Some((
+                arr[0].as_int().unwrap_or(0) as u32,
+                arr[1].as_int().unwrap_or(0) as u32,
+                arr[2].as_int().unwrap_or(0) as u32,
+                arr[3].as_int().unwrap_or(0) as u32,
+            ))
+        } else {
+            None
+        }
+    });
+    let size = spec.get("size").and_then(|v| {
+        let arr = v.clone().into_array().ok()?;
+        if arr.len() == 2 {
+            Some((
+                arr[0].as_int().unwrap_or(0) as u32,
+                arr[1].as_int().unwrap_or(0) as u32,
+            ))
+        } else {
+            None
+        }
+    });
+    let (x, y, score) = ncc_match_template_ex(image_dir, &k!(img), &name, crop, size, roi);
+    vec![(x as i64).into(), (y as i64).into(), score.into()]
+}
+
 pub fn new_engine(
     vision: &Arc<Vision>,
     pad: &Arc<Mutex<Gamepad>>,
@@ -237,6 +275,15 @@ pub fn new_engine(
             None
         };
         ncc_match_asset(&dir, img, name, roi)
+    });
+    let dir = image_dir.to_string();
+    engine.register_fn("ncc_match", move |img: Frame, spec: Map, x: i64, y: i64, w: i64, h: i64| -> Array {
+        let roi = if w > 0 && h > 0 {
+            Some((x as u32, y as u32, w as u32, h as u32))
+        } else {
+            None
+        };
+        ncc_match_asset_ex(&dir, img, &spec, roi)
     });
     let v = vision.clone();
     engine.register_fn("res_scale", move || -> Dynamic {

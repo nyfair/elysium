@@ -54,7 +54,7 @@ if m[2] < 0.5 {
     lstick(10000, 10000, 0.5);
     lstick(0, 10000, 0.2);
     lstick();
-} else if abs(m[0] - 630) < 2 && abs(m[1] - 378) < 2 {
+} else if abs(m[0] - 629) < 2 && abs(m[1] - 377) < 2 {
     run_combo("w1j4w1");
 } else if abs(m[0] - 630) < 2 && abs(m[1] - 278) < 2 {
     run_combo("w2j3w1");

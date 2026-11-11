@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import argparse
 import math
 from dataclasses import dataclass, field, replace

@@ -29,7 +29,8 @@ use crate::{k, log_error};
 
 const TEMPLATE_BASE_HEIGHT: f64 = 2160.;
 
-static TEMPLATES: Mutex<Option<HashMap<(PathBuf, u32), Arc<RgbImage>>>> = Mutex::new(None);
+static TEMPLATES: Mutex<Option<HashMap<(PathBuf, u32, Option<(u32, u32, u32, u32)>, Option<(u32, u32)>),
+    Arc<RgbImage>>>> = Mutex::new(None);
 static FFT_PLANNER: Mutex<Option<FftPlanner<f64>>> = Mutex::new(None);
 static SHOT_TRIGGER: AtomicBool = AtomicBool::new(false);
 static FRAME_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -278,7 +279,13 @@ impl Vision {
     }
 }
 
-pub fn load_template(image_dir: &str, name: &str, height: u32) -> Result<Arc<RgbImage>> {
+pub fn load_template_ex(
+    image_dir: &str,
+    name: &str,
+    height: u32,
+    crop: Option<(u32, u32, u32, u32)>,
+    template_size: Option<(u32, u32)>,
+) -> Result<Arc<RgbImage>> {
     let file = Path::new(name);
     let file = if file.extension().is_some() {
         file.to_path_buf()
@@ -286,16 +293,83 @@ pub fn load_template(image_dir: &str, name: &str, height: u32) -> Result<Arc<Rgb
         file.with_extension("png")
     };
     let path = Path::new(image_dir).join(file);
-    let key = (path.clone(), height);
+    let key = (path.clone(), height, crop, template_size);
     if let Some(tpl) = k!(TEMPLATES).as_ref().and_then(|m| m.get(&key)).cloned() {
         return Ok(tpl);
     }
 
     let raw = image::open(&path).with_context(|| format!("读取模板失败：{}", path.display()))?;
-    let scale = height as f64 / TEMPLATE_BASE_HEIGHT;
-    let w = ((raw.width() as f64 * scale) as u32).max(1);
-    let h = ((raw.height() as f64 * scale) as u32).max(1);
-    let rgb = fast_resize(&raw, w, h, ResizeAlg::Convolution(FilterType::Lanczos3)).to_rgb8();
+    let raw_w = raw.width() as f64;
+    let raw_h = raw.height() as f64;
+    let cropped = if let Some((cx, cy, cw, ch)) = crop {
+        raw.crop_imm(cx, cy, cw, ch)
+    } else if raw.color().has_alpha() {
+        let rgba = raw.to_rgba8();
+        let mut min_x = u32::MAX;
+        let mut min_y = u32::MAX;
+        let mut max_x = 0u32;
+        let mut max_y = 0u32;
+        for (x, y, p) in rgba.enumerate_pixels() {
+            if p[3] > 0 {
+                min_x = min_x.min(x);
+                min_y = min_y.min(y);
+                max_x = max_x.max(x);
+                max_y = max_y.max(y);
+            }
+        }
+        if min_x <= max_x && min_y <= max_y {
+            raw.crop_imm(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+        } else {
+            raw
+        }
+    } else {
+        raw
+    };
+
+    let rgb_raw = if cropped.color().has_alpha() {
+        let rgba = cropped.to_rgba8();
+        let premultiplied: RgbImage = ImageBuffer::from_fn(rgba.width(), rgba.height(), |x, y| {
+            let p = rgba.get_pixel(x, y);
+            let a = p[3] as u32;
+            Rgb([
+                ((p[0] as u32 * a) / 255) as u8,
+                ((p[1] as u32 * a) / 255) as u8,
+                ((p[2] as u32 * a) / 255) as u8,
+            ])
+        });
+        let (mut min, mut max) = (u8::MAX, 0u8);
+        for p in premultiplied.pixels() {
+            for c in p.0 {
+                min = min.min(c);
+                max = max.max(c);
+            }
+        }
+        if min == max {
+            DynamicImage::ImageRgb8(ImageBuffer::from_fn(rgba.width(), rgba.height(), |x, y| {
+                let a = rgba.get_pixel(x, y)[3];
+                Rgb([a, a, a])
+            }))
+        } else {
+            DynamicImage::ImageRgb8(premultiplied)
+        }
+    } else {
+        cropped
+    };
+
+    let (final_w, final_h) = if let Some((tw, th)) = template_size {
+        let s = height as f64 / BASE_HEIGHT;
+        let sx = tw as f64 * s / raw_w;
+        let sy = th as f64 * s / raw_h;
+        (
+            ((rgb_raw.width() as f64 * sx).round() as u32).max(1),
+            ((rgb_raw.height() as f64 * sy).round() as u32).max(1),
+        )
+    } else {
+        let s = height as f64 / TEMPLATE_BASE_HEIGHT;
+        (((rgb_raw.width() as f64 * s) as u32).max(1), ((rgb_raw.height() as f64 * s) as u32).max(1))
+    };
+
+    let rgb = fast_resize(&rgb_raw, final_w, final_h, ResizeAlg::Convolution(FilterType::Lanczos3)).to_rgb8();
     let tpl = Arc::new(rgb);
     let mut cache = k!(TEMPLATES);
     cache.get_or_insert_with(HashMap::new).insert(key, tpl.clone());
@@ -304,11 +378,22 @@ pub fn load_template(image_dir: &str, name: &str, height: u32) -> Result<Arc<Rgb
 
 pub fn ncc_match_template(
     image_dir: &str,
-    background: &ImageBuffer<Rgb<u8>, Vec<u8>>,
+    background: &RgbImage,
     name: &str,
     roi: Option<(u32, u32, u32, u32)>,
 ) -> (u32, u32, f64) {
-    let tpl = match load_template(image_dir, name, background.height()) {
+    ncc_match_template_ex(image_dir, background, name, None, None, roi)
+}
+
+pub fn ncc_match_template_ex(
+    image_dir: &str,
+    background: &RgbImage,
+    name: &str,
+    crop: Option<(u32, u32, u32, u32)>,
+    template_size: Option<(u32, u32)>,
+    roi: Option<(u32, u32, u32, u32)>,
+) -> (u32, u32, f64) {
+    let tpl = match load_template_ex(image_dir, name, background.height(), crop, template_size) {
         Ok(t) => t,
         Err(e) => {
             log_error!("加载模板“{name}”失败：{e:#}");

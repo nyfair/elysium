@@ -173,8 +173,8 @@ pub fn run(
             StopReason::TaskEnded => {}
         }
 
-        if matches!(reason, StopReason::Finished | StopReason::TaskEnded) {
-            if let Some(limit) = turn_limit {
+        if matches!(reason, StopReason::Finished | StopReason::TaskEnded)
+            && let Some(limit) = turn_limit {
                 completed_turns += 1;
                 log!("完成第 {completed_turns} 次");
                 if completed_turns >= limit {
@@ -182,7 +182,6 @@ pub fn run(
                     break;
                 }
             }
-        }
     }
     Ok(())
 }
