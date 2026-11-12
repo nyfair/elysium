@@ -758,12 +758,14 @@ pub struct TemplateSet {
     score_gap: f32,
     refs: Vec<RefItem>,
     query_mask: GrayImage,
+    hist_mask: GrayImage,
 }
 
 impl TemplateSet {
     pub fn new(
         size: u32,
         radius_ratio: f32,
+        hist_radius_ratio: f32,
         var_min: f32,
         score_min: f32,
         score_gap: f32,
@@ -775,6 +777,7 @@ impl TemplateSet {
             score_gap,
             refs: Vec::new(),
             query_mask: circle_mask(size, radius_ratio),
+            hist_mask: circle_mask(size, hist_radius_ratio),
         }
     }
 
@@ -791,7 +794,7 @@ impl TemplateSet {
         self.refs.push(RefItem {
             name: name.to_string(),
             file: file.to_string(),
-            vec: feature(&resized, &mask),
+            vec: feature(&resized, &mask, &self.hist_mask),
         });
     }
 
@@ -816,15 +819,22 @@ impl TemplateSet {
             ResizeAlg::Convolution(FilterType::Bilinear),
         ).to_rgba8();
         let (_, var) = masked_gray_stats(&q, &self.query_mask);
-        let qv = feature(&q, &self.query_mask);
+        let qv = feature(&q, &self.query_mask, &self.hist_mask);
 
-        let mut scored: Vec<(usize, f32)> = self
-            .refs
-            .iter()
-            .enumerate()
-            .map(|(i, r)| (i, cosine(&qv, &r.vec)))
-            .collect();
-        scored.sort_by(|a, b| b.1.total_cmp(&a.1));
+        // Keep the best score of character within all fashions
+        let mut best_by_name: HashMap<&str, (usize, f32)> = HashMap::new();
+        for (i, r) in self.refs.iter().enumerate() {
+            let score = cosine(&qv, &r.vec);
+            let best = best_by_name.entry(&r.name).or_insert((i, score));
+            if score > best.1 {
+                *best = (i, score);
+            }
+        }
+        let mut scored: Vec<(usize, f32)> = best_by_name.into_values().collect();
+        scored.sort_by(|a, b| {
+            b.1.total_cmp(&a.1)
+                .then_with(|| self.refs[a.0].name.cmp(&self.refs[b.0].name))
+        });
 
         let mut top = Vec::new();
         for &(i, s) in scored.iter().take(3) {
@@ -839,8 +849,8 @@ impl TemplateSet {
             None
         } else {
             let (i, s) = scored[0];
-            let (i2, s2) = scored[1];
-            if s < self.score_min || (s - s2 < self.score_gap && self.refs[i].name != self.refs[i2].name) {
+            let runner_up = scored.get(1).map_or(f32::NEG_INFINITY, |x| x.1);
+            if s < self.score_min || s - runner_up < self.score_gap {
                 None
             } else {
                 Some((self.refs[i].name.clone(), s))
@@ -850,7 +860,7 @@ impl TemplateSet {
     }
 }
 
-fn feature(rgba: &RgbaImage, mask: &GrayImage) -> Vec<f32> {
+fn feature(rgba: &RgbaImage, mask: &GrayImage, hist_mask: &GrayImage) -> Vec<f32> {
     let (w, h) = rgba.dimensions();
     let n = (w * h) as usize;
     let mut gray = vec![0f32; n];
@@ -862,7 +872,7 @@ fn feature(rgba: &RgbaImage, mask: &GrayImage) -> Vec<f32> {
         }
     }
     l2_normalize(&mut gray);
-    let mut hist = hsv_hist(rgba, mask);
+    let mut hist = hsv_hist(rgba, mask, hist_mask);
     l2_normalize(&mut hist);
     let mut v = Vec::with_capacity(n + hist.len());
     v.extend(gray.into_iter().map(|x| x * GRAY_WEIGHT));
@@ -901,13 +911,13 @@ fn masked_gray_stats(rgba: &RgbaImage, mask: &GrayImage) -> (f32, f32) {
     (mean as f32, (sum2 / cnt - mean * mean) as f32)
 }
 
-fn hsv_hist(img: &RgbaImage, mask: &GrayImage) -> Vec<f32> {
+fn hsv_hist(img: &RgbaImage, mask: &GrayImage, hist_mask: &GrayImage) -> Vec<f32> {
     const H_BINS: usize = 16;
     const S_BINS: usize = 8;
     const V_BINS: usize = 8;
     let mut hist = vec![0f32; H_BINS * S_BINS * V_BINS];
     for (x, y, p) in img.enumerate_pixels() {
-        if mask.get_pixel(x, y).0[0] == 0 {
+        if mask.get_pixel(x, y).0[0] == 0 || hist_mask.get_pixel(x, y).0[0] == 0 {
             continue;
         }
         let (h, s, v) = rgb_to_hsv(p.0[0], p.0[1], p.0[2]);

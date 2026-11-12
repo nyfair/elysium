@@ -90,8 +90,9 @@ pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
 
 const FEATURE_SIZE: u32 = 64;
 const MASK_RADIUS_RATIO: f32 = 0.42;
+const HIST_MASK_RADIUS_RATIO: f32 = 0.36;
 const SCORE_MIN: f32 = 0.55;
-const SCORE_GAP: f32 = 0.001;
+const SCORE_GAP: f32 = 0.01;
 const VARIANCE_MIN: f32 = 0.025;
 const SOUND_DIR: &str = "nte/sounds";
 const DODGE_THRESHOLD: f64 = 0.16;
@@ -209,7 +210,14 @@ impl AvatarMatcher {
             chars_by_name.insert(c.name.clone(), c.clone());
         }
         let mut templates =
-            TemplateSet::new(FEATURE_SIZE, MASK_RADIUS_RATIO, VARIANCE_MIN, SCORE_MIN, SCORE_GAP);
+            TemplateSet::new(
+                FEATURE_SIZE,
+                MASK_RADIUS_RATIO,
+                HIST_MASK_RADIUS_RATIO,
+                VARIANCE_MIN,
+                SCORE_MIN,
+                SCORE_GAP,
+            );
         for path in &files {
             let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
             let Some(c) = chars.iter().find(|c| stem.starts_with(&c.asset_name)) else {
