@@ -165,7 +165,7 @@ fn init_resources(
         }
         #[cfg(feature = "nte")]
         GameType::Nte => {
-            crate::nte::setup_engine(&mut engine, &pad, state, &vision, &ocr);
+            crate::nte::setup_engine(&mut engine, &pad, state, &vision, &ocr, &image_dir);
         }
         #[cfg(feature = "sp")]
         GameType::Sp => {

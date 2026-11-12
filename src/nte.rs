@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
@@ -77,7 +78,7 @@ pub fn launch(args: &Args) -> Result<()> {
 }
 
 const CHARACTER_JSON: &str = "nte/DataTable/Character/DT_Character.json";
-const AVATAR_DIR: &str = "nte/UI_Icon/AvatarImage/256";
+const AVATAR_DIR: &str = "UI_Icon/AvatarImage/256";
 const TP_JSON: &str = "nte/tp.json";
 
 pub const AVATAR_ROIS: [(u32, u32, u32, u32); 4] = [
@@ -189,10 +190,11 @@ pub struct AvatarMatcher {
 }
 
 impl AvatarMatcher {
-    pub fn load(chars: &[Character]) -> Result<Self> {
+    pub fn load(image_dir: &str, chars: &[Character]) -> Result<Self> {
+        let avatar_dir = Path::new(image_dir).join(AVATAR_DIR);
         let mut files = Vec::new();
-        for entry in std::fs::read_dir(AVATAR_DIR)
-            .with_context(|| format!("读取 {AVATAR_DIR} 失败"))?
+        for entry in std::fs::read_dir(&avatar_dir)
+            .with_context(|| format!("读取 {} 失败", avatar_dir.display()))?
         {
             let path = entry?.path();
             if path.extension().map(|x| x == "png").unwrap_or(false) {
@@ -200,7 +202,7 @@ impl AvatarMatcher {
             }
         }
         if files.is_empty() {
-            bail!("未在 {AVATAR_DIR} 找到任何头像素材");
+            bail!("未在 {} 找到任何头像素材", avatar_dir.display());
         }
         let mut chars_by_name = HashMap::new();
         for c in chars {
@@ -224,7 +226,7 @@ impl AvatarMatcher {
             templates.add_alpha_ref(&c.name, &file, &img);
         }
         if templates.is_empty() {
-            bail!("未在 {AVATAR_DIR} 找到匹配角色的头像素材");
+            bail!("未在 {} 找到匹配角色的头像素材", avatar_dir.display());
         }
         Ok(Self { templates, chars_by_name })
     }
@@ -548,9 +550,10 @@ pub fn setup_engine(
     _state: &TaskState,
     vision: &Arc<Vision>,
     ocr: &Arc<Ocr>,
+    image_dir: &str,
 ) {
     let chars = load_characters().unwrap();
-    let matcher = Arc::new(AvatarMatcher::load(&chars).unwrap());
+    let matcher = Arc::new(AvatarMatcher::load(image_dir, &chars).unwrap());
     let tp = Arc::new(load_tp().unwrap());
     engine.register_fn("name", |c: &mut Character| c.name.clone());
     engine.register_fn("tag", |c: &mut Character| -> Array {

@@ -250,7 +250,7 @@ fn init_cli(game: GameType) -> Result<CliResources> {
         }
         #[cfg(feature = "nte")]
         GameType::Nte => {
-            nte::setup_engine(&mut engine, &pad, &state, &vision, &ocr);
+            nte::setup_engine(&mut engine, &pad, &state, &vision, &ocr, &image_dir);
         }
         #[cfg(feature = "sp")]
         GameType::Sp => {
